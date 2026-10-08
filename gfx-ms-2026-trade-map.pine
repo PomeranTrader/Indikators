@@ -1,6 +1,6 @@
 //@version=6
 // =====================================================================
-// GFX MS 2026 – TRADE MAP v2  (ponor • trvanie • TP • štatistiky)
+// GFX MS 2026 – TRADE MAP v3  (ponor • trvanie • TP • štatistiky)
 // Manuálne signály GFX Premier Club 29.12.2025 – 08.10.2026, XAUUSD
 //
 // INŠTALÁCIA (TradingView):
@@ -26,7 +26,7 @@
 // Dáta: gfx.db setup_metrics (MAE strict fill), otvorené signály podľa stavu 2026-10-07.
 // Časy postov sú UNIX ms (Europe/Bratislava), "✎" = čas postu bol upravený (edited).
 // =====================================================================
-indicator("GFX MS 2026 – Trade Map v2 (ponor • trvanie • TP)", shorttitle = "GFX MS Trade Map v2", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("GFX MS 2026 – Trade Map v3 (ponor • trvanie • TP)", shorttitle = "GFX MS Trade Map v3", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 plot(close, "XAUUSD close", color = color.new(color.gray, 100), display = display.none, editable = false)
 
 // ───────────────────────────── VSTUPY ─────────────────────────────
@@ -274,93 +274,103 @@ f_lbl(int i) =>
         tip += "\nZisk / ponor: " + f_rr(prof, ma)
     [full, cmp, num, tip]
 
-// ───────────────────────────── KRESLENIE ─────────────────────────────
-f_draw(int i, array<box> bx, array<line> ln, array<label> lb) =>
-    int   t0    = array.get(T, i)
-    float en    = array.get(EN, i)
-    float tp    = array.get(TP, i)
-    int   s     = f_st(i)
-    float ma    = f_ma(i)
-    float hr    = f_hr(i)
-    bool  noM   = f_noM(i)
-    bool  isOpn = s == 2
-    int   d     = na(en) or tp >= en ? 1 : -1
-    int   k     = f_cls(ma)
-    int   minMs = math.max(minW * 60000, timeframe.in_seconds() * 1000)
-    int   tHit  = noM or isOpn ? na : t0 + math.round(hr * 3600000)
-    int   tEnd  = noM ? t0 + noMLen * 3600000 : isOpn ? math.max(nz(time_close, timenow), t0 + minMs) : math.max(tHit, t0 + minMs)
-    int   tMid  = t0 + math.round((tEnd - t0) / 2)
-    color cS    = noM ? cNoM : isOpn ? cOpen : f_clsCol(k)
-    color cD    = f_clsCol(k)
-    bool  dim   = focus and not noM and not isOpn and k < 2
-    int   tr    = dim ? math.min(zTr + 15, 96) : zTr
-    float yTop  = na(en) ? tp : d == 1 ? math.max(en, tp) : math.min(en, tp)
-    [full, cmp, num, tip] = f_lbl(i)
-    if noM
-        if showEntry and not na(en)
-            ln.push(line.new(t0, en, tEnd, en, xloc = xloc.bar_time, color = color.new(cNoM, 20), width = 2))
-        ln.push(line.new(t0, tp, tEnd, tp, xloc = xloc.bar_time, color = cNoM, style = line.style_dashed, width = 1))
-    else
-        float ddP = d == 1 ? en - ma : en + ma
-        if showZone
-            bx.push(box.new(t0, math.max(en, tp), tEnd, math.min(en, tp), border_color = color.new(isOpn ? cOpen : cZone, dim ? 75 : 25), border_width = 1, xloc = xloc.bar_time, bgcolor = color.new(isOpn ? cOpen : cZone, tr)))
-        if showDD and not na(ma) and ma > 0
-            bx.push(box.new(t0, math.max(en, ddP), tEnd, math.min(en, ddP), border_color = color.new(cD, dim ? 75 : 15), border_width = 1, xloc = xloc.bar_time, bgcolor = color.new(cD, tr)))
-        if showEntry
-            ln.push(line.new(t0, en, tEnd, en, xloc = xloc.bar_time, color = color.new(cEntry, dim ? 65 : 0), width = 2))
-        if showPath and not isOpn
-            ln.push(line.new(t0, en, tHit, tp, xloc = xloc.bar_time, color = color.new(cZone, dim ? 65 : 0), style = line.style_dotted, width = 2))
-        if showHitMk and not isOpn
-            lb.push(label.new(tHit, tp, "", xloc = xloc.bar_time, style = label.style_diamond, color = color.new(cZone, dim ? 65 : 0), size = size.tiny, tooltip = num + " TP zasiahnutý " + f_dt(tHit) + " po " + f_dur(hr)))
-        if showDepth and not na(ma) and ma >= depthMin
-            lb.push(label.new(tMid, ddP, "▼ " + str.tostring(ma, "0.0") + " $", xloc = xloc.bar_time, style = d == 1 ? label.style_label_up : label.style_label_down, color = color.new(cD, dim ? 65 : 10), textcolor = f_txtOn(cD), size = size.tiny, tooltip = tip))
-    if lblMode != "Skryť"
-        string txt = lblMode == "Plné" ? full : lblMode == "Kompaktné" ? cmp : num
-        lb.push(label.new(tMid, yTop, txt, xloc = xloc.bar_time, style = d == 1 ? label.style_label_down : label.style_label_up, color = color.new(cS, dim ? 70 : 8), textcolor = dim ? color.new(f_txtOn(cS), 40) : f_txtOn(cS), size = f_size(lblSize), textalign = text.align_left, tooltip = tip))
-    true
-
 // ───────────────────────────── TABUĽKY ─────────────────────────────
-f_c(table tb, int c, int r, string txt, color bg, color fg, string tip, string ha) =>
-    table.cell(tb, c, r, txt, text_color = fg, bgcolor = bg, text_size = f_size(tblSize), text_halign = ha, tooltip = tip)
-    true
-
 f_mon(int key) =>
     array<string> MN = array.from("Jan", "Feb", "Mar", "Apr", "Máj", "Jún", "Júl", "Aug", "Sep", "Okt", "Nov", "Dec")
     MN.get(key % 100 - 1) + " " + str.tostring(math.floor(key / 100) % 100, "00")
 
+TS = f_size(tblSize)
+LS = f_size(lblSize)
 var table tM = table.new(f_pos(posMain), 6, 15, bgcolor = BG, frame_color = BRD, frame_width = 1, border_color = BRD, border_width = 1)
 var table tD = table.new(f_pos(posDet), 7, 45, bgcolor = BG, frame_color = BRD, frame_width = 1, border_color = BRD, border_width = 1)
 
-// ───────────────────────────── HLAVNÝ BEH ─────────────────────────────
-var array<box>   sBx = array.new<box>()
-var array<line>  sLn = array.new<line>()
-var array<label> sLb = array.new<label>()
-var array<box>   oBx = array.new<box>()
-var array<line>  oLn = array.new<line>()
-var array<label> oLb = array.new<label>()
-var bool drawn = false
+// zlúčenie hlavičiek tabuliek – raz, na prvom bare (dáta sú statické)
+if barstate.isfirst
+    if showMain
+        table.merge_cells(tM, 0, 0, 5, 0)
+        table.merge_cells(tM, 0, 6, 5, 6)
+    array<int> ks = array.new<int>()
+    int nMet = 0
+    for i = 0 to array.size(T) - 1
+        int t0 = array.get(T, i)
+        if t0 >= fromT and t0 <= toT
+            int key = year(t0, tz) * 100 + month(t0, tz)
+            if array.indexof(ks, key) < 0
+                array.push(ks, key)
+            if not f_noM(i) and not na(array.get(MA, i))
+                nMet += 1
+    int nMon = math.min(array.size(ks), 24)
+    int r0 = 0
+    if showMon and nMon > 0
+        table.merge_cells(tD, 0, 0, 6, 0)
+        r0 := nMon + 2
+    if showTop and nMet > 0
+        table.merge_cells(tD, 0, r0, 6, r0)
+
+// ───────────────────────────── KRESLENIE + ŠTATISTIKY ─────────────────────────────
+var array<box>   gBx = array.new<box>()
+var array<line>  gLn = array.new<line>()
+var array<label> gLb = array.new<label>()
 
 if barstate.islast
-    int N = array.size(T)
-    bool first = not drawn
-    // 1) uzavreté signály – nakreslia sa raz
-    if first
-        drawn := true
-        for i = 0 to N - 1
-            if array.get(ST, i) != 2 and f_visible(i)
-                f_draw(i, sBx, sLn, sLb)
-    // 2) otvorené signály – prekresľujú sa každý tick (živý ponor, P/L, trvanie)
-    while oBx.size() > 0
-        box.delete(oBx.pop())
-    while oLn.size() > 0
-        line.delete(oLn.pop())
-    while oLb.size() > 0
-        label.delete(oLb.pop())
-    for i in OI
-        if f_visible(i)
-            f_draw(i, oBx, oLn, oLb)
+    // zmaž predchádzajúce kreslenie a nakresli všetko nanovo (otvorené obchody sa tak živo aktualizujú)
+    while array.size(gBx) > 0
+        box.delete(array.pop(gBx))
+    while array.size(gLn) > 0
+        line.delete(array.pop(gLn))
+    while array.size(gLb) > 0
+        label.delete(array.pop(gLb))
 
-    // 3) štatistiky (filter dátumu)
+    int N     = array.size(T)
+    int minMs = math.max(minW * 60000, timeframe.in_seconds() * 1000)
+    int nowT  = nz(time_close, timenow)
+
+    // ── 1) obchody na grafe
+    for i = 0 to N - 1
+        if not f_visible(i)
+            continue
+        int   t0    = array.get(T, i)
+        float en    = array.get(EN, i)
+        float tp    = array.get(TP, i)
+        int   s     = f_st(i)
+        float ma    = f_ma(i)
+        float hr    = f_hr(i)
+        bool  noM   = f_noM(i)
+        bool  isOpn = s == 2
+        int   d     = na(en) or tp >= en ? 1 : -1
+        int   k     = f_cls(ma)
+        int   tHit  = noM or isOpn ? na : t0 + math.round(hr * 3600000)
+        int   tEnd  = noM ? t0 + noMLen * 3600000 : isOpn ? math.max(nowT, t0 + minMs) : math.max(tHit, t0 + minMs)
+        int   tMid  = t0 + math.round((tEnd - t0) / 2)
+        color cS    = noM ? cNoM : isOpn ? cOpen : f_clsCol(k)
+        color cD    = f_clsCol(k)
+        bool  dim   = focus and not noM and not isOpn and k < 2
+        int   tr    = dim ? math.min(zTr + 15, 96) : zTr
+        float yTop  = na(en) ? tp : d == 1 ? math.max(en, tp) : math.min(en, tp)
+        [full, cmp, num, tip] = f_lbl(i)
+        if noM
+            if showEntry and not na(en)
+                array.push(gLn, line.new(t0, en, tEnd, en, xloc = xloc.bar_time, color = color.new(cNoM, 20), width = 2))
+            array.push(gLn, line.new(t0, tp, tEnd, tp, xloc = xloc.bar_time, color = cNoM, style = line.style_dashed, width = 1))
+        else
+            float ddP = d == 1 ? en - ma : en + ma
+            if showZone
+                array.push(gBx, box.new(t0, math.max(en, tp), tEnd, math.min(en, tp), border_color = color.new(isOpn ? cOpen : cZone, dim ? 75 : 25), border_width = 1, xloc = xloc.bar_time, bgcolor = color.new(isOpn ? cOpen : cZone, tr)))
+            if showDD and not na(ma) and ma > 0
+                array.push(gBx, box.new(t0, math.max(en, ddP), tEnd, math.min(en, ddP), border_color = color.new(cD, dim ? 75 : 15), border_width = 1, xloc = xloc.bar_time, bgcolor = color.new(cD, tr)))
+            if showEntry
+                array.push(gLn, line.new(t0, en, tEnd, en, xloc = xloc.bar_time, color = color.new(cEntry, dim ? 65 : 0), width = 2))
+            if showPath and not isOpn
+                array.push(gLn, line.new(t0, en, tHit, tp, xloc = xloc.bar_time, color = color.new(cZone, dim ? 65 : 0), style = line.style_dotted, width = 2))
+            if showHitMk and not isOpn
+                array.push(gLb, label.new(tHit, tp, "", xloc = xloc.bar_time, style = label.style_diamond, color = color.new(cZone, dim ? 65 : 0), size = size.tiny, tooltip = num + " TP zasiahnutý " + f_dt(tHit) + " po " + f_dur(hr)))
+            if showDepth and not na(ma) and ma >= depthMin
+                array.push(gLb, label.new(tMid, ddP, "▼ " + str.tostring(ma, "0.0") + " $", xloc = xloc.bar_time, style = d == 1 ? label.style_label_up : label.style_label_down, color = color.new(cD, dim ? 65 : 10), textcolor = f_txtOn(cD), size = size.tiny, tooltip = tip))
+        if lblMode != "Skryť"
+            string txt = lblMode == "Plné" ? full : lblMode == "Kompaktné" ? cmp : num
+            array.push(gLb, label.new(tMid, yTop, txt, xloc = xloc.bar_time, style = d == 1 ? label.style_label_down : label.style_label_up, color = color.new(cS, dim ? 70 : 8), textcolor = dim ? color.new(f_txtOn(cS), 40) : f_txtOn(cS), size = LS, textalign = text.align_left, tooltip = tip))
+
+    // ── 2) štatistiky (filter dátumu)
     int nAll  = 0
     int nHit  = 0
     int nOpn  = 0
@@ -396,17 +406,17 @@ if barstate.islast
         if array.get(ED, i)
             nEd += 1
         int key = year(t0, tz) * 100 + month(t0, tz)
-        int mi  = mK.indexof(key)
+        int mi  = array.indexof(mK, key)
         if mi < 0
-            mK.push(key)
-            mN.push(0)
-            mH.push(0)
-            mDp.push(0)
-            mSM.push(0.0)
-            mMx.push(0.0)
-            mSH.push(0.0)
-            mi := mK.size() - 1
-        mN.set(mi, mN.get(mi) + 1)
+            array.push(mK, key)
+            array.push(mN, 0)
+            array.push(mH, 0)
+            array.push(mDp, 0)
+            array.push(mSM, 0.0)
+            array.push(mMx, 0.0)
+            array.push(mSH, 0.0)
+            mi := array.size(mK) - 1
+        array.set(mN, mi, array.get(mN, mi) + 1)
         int s = f_st(i)
         if f_noM(i)
             nNoM += 1
@@ -415,8 +425,8 @@ if barstate.islast
         float hr = f_hr(i)
         float pr = math.abs(array.get(TP, i) - array.get(EN, i))
         if not na(ma)
-            tI.push(i)
-            tV.push(ma)
+            array.push(tI, i)
+            array.push(tV, ma)
             if ma > vMax
                 vMax := ma
                 iMax := i
@@ -429,154 +439,148 @@ if barstate.islast
         else
             nHit += 1
             if not na(ma)
-                aMA.push(ma)
+                array.push(aMA, ma)
                 int k = f_cls(ma)
-                cN.set(k, cN.get(k) + 1)
-                cH.set(k, cH.get(k) + nz(hr))
-                mSM.set(mi, mSM.get(mi) + ma)
-                mMx.set(mi, math.max(mMx.get(mi), ma))
+                array.set(cN, k, array.get(cN, k) + 1)
+                array.set(cH, k, array.get(cH, k) + nz(hr))
+                array.set(mSM, mi, array.get(mSM, mi) + ma)
+                array.set(mMx, mi, math.max(array.get(mMx, mi), ma))
                 if ma > th2
-                    mDp.set(mi, mDp.get(mi) + 1)
+                    array.set(mDp, mi, array.get(mDp, mi) + 1)
             if not na(hr)
-                aHR.push(hr)
-                mSH.set(mi, mSH.get(mi) + hr)
-            aPR.push(pr)
-            mH.set(mi, mH.get(mi) + 1)
+                array.push(aHR, hr)
+                array.set(mSH, mi, array.get(mSH, mi) + hr)
+            array.push(aPR, pr)
+            array.set(mH, mi, array.get(mH, mi) + 1)
 
     int   nEval = nHit + nOpn
-    float avgMA = aMA.size() > 0 ? aMA.avg() : na
-    float medMA = aMA.size() > 0 ? aMA.median() : na
-    float avgHR = aHR.size() > 0 ? aHR.avg() : na
-    float medHR = aHR.size() > 0 ? aHR.median() : na
-    float maxHR = aHR.size() > 0 ? aHR.max() : na
-    float avgPR = aPR.size() > 0 ? aPR.avg() : na
+    float avgMA = array.size(aMA) > 0 ? array.avg(aMA) : na
+    float medMA = array.size(aMA) > 0 ? array.median(aMA) : na
+    float avgHR = array.size(aHR) > 0 ? array.avg(aHR) : na
+    float medHR = array.size(aHR) > 0 ? array.median(aHR) : na
+    float maxHR = array.size(aHR) > 0 ? array.max(aHR) : na
+    float avgPR = array.size(aPR) > 0 ? array.avg(aPR) : na
     float ratio = na(avgPR) or na(avgMA) or avgMA <= 0 ? na : avgPR / avgMA
     string ptxt = nEval > 0 ? " (" + str.tostring(100.0 * nHit / nEval, "0.0") + " %)" : ""
 
-    // ── tabuľka: prehľad + rozdelenie ponoru
+    // ── 3) tabuľka: prehľad + rozdelenie ponoru
     if showMain
-        if first
-            tM.merge_cells(0, 0, 5, 0)
-            tM.merge_cells(0, 6, 5, 6)
         string rng = na(tFirst) ? "žiadne signály vo filtri" : str.format_time(tFirst, "dd.MM.yy", tz) + " – " + str.format_time(tLast, "dd.MM.yy", tz)
-        f_c(tM, 0, 0, "GFX MS 2026 · MAPA OBCHODOV  │  " + rng, HD, TX, "Štatistiky rešpektujú filter dátumu. Upravené časy postov: " + str.tostring(nEd), text.align_center)
-        f_c(tM, 0, 1, "Signály", HD, MUT, "", text.align_left)
-        f_c(tM, 1, 1, str.tostring(nAll), BG, TX, "", text.align_center)
-        f_c(tM, 2, 1, "TP ✓", HD, MUT, "TP zasiahnutý / (TP zasiahnutý + otvorené)", text.align_left)
-        f_c(tM, 3, 1, str.tostring(nHit) + ptxt, BG, cZone, "", text.align_center)
-        f_c(tM, 4, 1, "Otvorené", HD, MUT, "", text.align_left)
-        f_c(tM, 5, 1, str.tostring(nOpn), nOpn > 0 ? color.new(cOpen, 35) : BG, TX, "", text.align_center)
-        f_c(tM, 0, 2, "Bez metrík", HD, MUT, "TP hit iba podľa postu / nevyhodnotené (neznáme entry)", text.align_left)
-        f_c(tM, 1, 2, str.tostring(nNoM), BG, TX, "", text.align_center)
-        f_c(tM, 2, 2, "Ponor > " + str.tostring(th2, "0") + " $", HD, MUT, "Počet obchodov (vrátane otvorených) s ponorom nad prahom MIERNY", text.align_left)
-        f_c(tM, 3, 2, str.tostring(nDeep) + (nEval > 0 ? " (" + str.tostring(100.0 * nDeep / nEval, "0.0") + " %)" : ""), BG, c3, "", text.align_center)
-        f_c(tM, 4, 2, "Ponor > zisk", HD, MUT, "Obchody, kde max ponor bol väčší ako vzdialenosť entry → TP", text.align_left)
-        f_c(tM, 5, 2, str.tostring(nOver) + (nEval > 0 ? " (" + str.tostring(100.0 * nOver / nEval, "0.0") + " %)" : ""), BG, c2, "", text.align_center)
-        f_c(tM, 0, 3, "Ø ponor", HD, MUT, "Iba TP ✓ obchody", text.align_left)
-        f_c(tM, 1, 3, f_px(avgMA) + " $", color.new(f_clsCol(f_cls(avgMA)), 60), TX, f_lotU(avgMA), text.align_center)
-        f_c(tM, 2, 3, "Medián", HD, MUT, "", text.align_left)
-        f_c(tM, 3, 3, f_px(medMA) + " $", color.new(f_clsCol(f_cls(medMA)), 60), TX, f_lotU(medMA), text.align_center)
-        f_c(tM, 4, 3, "Max ponor", HD, MUT, "Vrátane otvorených", text.align_left)
-        f_c(tM, 5, 3, iMax < 0 ? "—" : f_px(vMax) + " $ #" + str.tostring(iMax + 1), iMax < 0 ? BG : color.new(f_clsCol(f_cls(vMax)), 40), TX, iMax < 0 ? "" : f_lotU(vMax) + " · " + str.format_time(array.get(T, iMax), "dd.MM.yyyy HH:mm", tz), text.align_center)
-        f_c(tM, 0, 4, "Ø trvanie", HD, MUT, "Čas od postu po TP hit", text.align_left)
-        f_c(tM, 1, 4, f_dur(avgHR), BG, TX, "", text.align_center)
-        f_c(tM, 2, 4, "Medián", HD, MUT, "", text.align_left)
-        f_c(tM, 3, 4, f_dur(medHR), BG, TX, "", text.align_center)
-        f_c(tM, 4, 4, "Max trvanie", HD, MUT, "", text.align_left)
-        f_c(tM, 5, 4, f_dur(maxHR), BG, TX, "", text.align_center)
-        f_c(tM, 0, 5, "Ø zisk TP", HD, MUT, "", text.align_left)
-        f_c(tM, 1, 5, f_px(avgPR) + " $", BG, cZone, f_lotU(avgPR), text.align_center)
-        f_c(tM, 2, 5, "Ø zisk / Ø ponor", HD, MUT, "< 1 = obchody v priemere idú viac proti, než koľko zarobia na TP", text.align_left)
-        f_c(tM, 3, 5, na(ratio) ? "—" : str.tostring(ratio, "0.00"), na(ratio) ? BG : ratio >= 1 ? color.new(c0, 55) : color.new(c3, 55), TX, "", text.align_center)
-        f_c(tM, 4, 5, "Ø ponor @lot", HD, MUT, "Prepočet na zvolený lot (1 lot = 100 oz)", text.align_left)
-        f_c(tM, 5, 5, na(avgMA) ? "—" : str.tostring(avgMA * 100 * lot, "0") + " USD", BG, TX, "@ " + str.tostring(lot, "0.00") + " lot", text.align_center)
-        f_c(tM, 0, 6, "ROZDELENIE PONORU  (TP ✓ obchody)", HD, TX, "", text.align_center)
-        f_c(tM, 0, 7, "Trieda", HD, MUT, "", text.align_center)
-        f_c(tM, 1, 7, "Rozsah", HD, MUT, "", text.align_center)
-        f_c(tM, 2, 7, "Počet", HD, MUT, "", text.align_center)
-        f_c(tM, 3, 7, "%", HD, MUT, "", text.align_center)
-        f_c(tM, 4, 7, "Graf", HD, MUT, "", text.align_left)
-        f_c(tM, 5, 7, "Ø trvanie", HD, MUT, "", text.align_center)
+        table.cell(tM, 0, 0, "GFX MS 2026 · MAPA OBCHODOV  │  " + rng, text_color = TX, bgcolor = HD, text_size = TS, tooltip = "Štatistiky rešpektujú filter dátumu. Upravené časy postov: " + str.tostring(nEd))
+        table.cell(tM, 0, 1, "Signály", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 1, 1, str.tostring(nAll), text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 2, 1, "TP ✓", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "TP zasiahnutý / (TP zasiahnutý + otvorené)")
+        table.cell(tM, 3, 1, str.tostring(nHit) + ptxt, text_color = cZone, bgcolor = BG, text_size = TS)
+        table.cell(tM, 4, 1, "Otvorené", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 5, 1, str.tostring(nOpn), text_color = TX, bgcolor = nOpn > 0 ? color.new(cOpen, 35) : BG, text_size = TS)
+        table.cell(tM, 0, 2, "Bez metrík", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "TP hit iba podľa postu / nevyhodnotené (neznáme entry)")
+        table.cell(tM, 1, 2, str.tostring(nNoM), text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 2, 2, "Ponor > " + str.tostring(th2, "0") + " $", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Obchody (vrátane otvorených) s ponorom nad prahom MIERNY")
+        table.cell(tM, 3, 2, str.tostring(nDeep) + (nEval > 0 ? " (" + str.tostring(100.0 * nDeep / nEval, "0.0") + " %)" : ""), text_color = c3, bgcolor = BG, text_size = TS)
+        table.cell(tM, 4, 2, "Ponor > zisk", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Obchody, kde max ponor bol väčší ako vzdialenosť entry → TP")
+        table.cell(tM, 5, 2, str.tostring(nOver) + (nEval > 0 ? " (" + str.tostring(100.0 * nOver / nEval, "0.0") + " %)" : ""), text_color = c2, bgcolor = BG, text_size = TS)
+        table.cell(tM, 0, 3, "Ø ponor", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Iba TP ✓ obchody")
+        table.cell(tM, 1, 3, f_px(avgMA) + " $", text_color = TX, bgcolor = color.new(f_clsCol(f_cls(avgMA)), 60), text_size = TS, tooltip = f_lotU(avgMA))
+        table.cell(tM, 2, 3, "Medián", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 3, 3, f_px(medMA) + " $", text_color = TX, bgcolor = color.new(f_clsCol(f_cls(medMA)), 60), text_size = TS, tooltip = f_lotU(medMA))
+        table.cell(tM, 4, 3, "Max ponor", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Vrátane otvorených")
+        table.cell(tM, 5, 3, iMax < 0 ? "—" : f_px(vMax) + " $ #" + str.tostring(iMax + 1), text_color = TX, bgcolor = iMax < 0 ? BG : color.new(f_clsCol(f_cls(vMax)), 40), text_size = TS, tooltip = iMax < 0 ? "" : f_lotU(vMax) + " · " + str.format_time(array.get(T, math.max(iMax, 0)), "dd.MM.yyyy HH:mm", tz))
+        table.cell(tM, 0, 4, "Ø trvanie", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Čas od postu po TP hit")
+        table.cell(tM, 1, 4, f_dur(avgHR), text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 2, 4, "Medián", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 3, 4, f_dur(medHR), text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 4, 4, "Max trvanie", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 5, 4, f_dur(maxHR), text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 0, 5, "Ø zisk TP", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 1, 5, f_px(avgPR) + " $", text_color = cZone, bgcolor = BG, text_size = TS, tooltip = f_lotU(avgPR))
+        table.cell(tM, 2, 5, "Ø zisk / Ø ponor", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "< 1 = obchody v priemere idú viac proti, než koľko zarobia na TP")
+        table.cell(tM, 3, 5, na(ratio) ? "—" : str.tostring(ratio, "0.00"), text_color = TX, bgcolor = na(ratio) ? BG : ratio >= 1 ? color.new(c0, 55) : color.new(c3, 55), text_size = TS)
+        table.cell(tM, 4, 5, "Ø ponor @lot", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Prepočet na zvolený lot (1 lot = 100 oz)")
+        table.cell(tM, 5, 5, na(avgMA) ? "—" : str.tostring(avgMA * 100 * lot, "0") + " USD", text_color = TX, bgcolor = BG, text_size = TS, tooltip = "@ " + str.tostring(lot, "0.00") + " lot")
+        table.cell(tM, 0, 6, "ROZDELENIE PONORU  (TP ✓ obchody)", text_color = TX, bgcolor = HD, text_size = TS)
+        table.cell(tM, 0, 7, "Trieda", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tM, 1, 7, "Rozsah", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tM, 2, 7, "Počet", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tM, 3, 7, "%", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tM, 4, 7, "Graf", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 5, 7, "Ø trvanie", text_color = MUT, bgcolor = HD, text_size = TS)
         for k = 0 to 4
-            int   n   = cN.get(k)
-            float pct = aMA.size() > 0 ? 100.0 * n / aMA.size() : 0.0
+            int   n   = array.get(cN, k)
+            float pct = array.size(aMA) > 0 ? 100.0 * n / array.size(aMA) : 0.0
             int   nb  = math.round(pct / 4)
             color cc  = f_clsCol(k)
-            f_c(tM, 0, 8 + k, f_clsName(k), cc, f_txtOn(cc), "", text.align_center)
-            f_c(tM, 1, 8 + k, f_rng(k), BG, TX, "", text.align_center)
-            f_c(tM, 2, 8 + k, str.tostring(n), BG, TX, "", text.align_center)
-            f_c(tM, 3, 8 + k, str.tostring(pct, "0.0") + " %", BG, TX, "", text.align_center)
-            f_c(tM, 4, 8 + k, nb > 0 ? str.repeat("█", nb) : "·", BG, cc, "", text.align_left)
-            f_c(tM, 5, 8 + k, n > 0 ? f_dur(cH.get(k) / n) : "—", BG, TX, "", text.align_center)
-        f_c(tM, 0, 13, "OTVORENÝ", cOpen, f_txtOn(cOpen), "", text.align_center)
-        f_c(tM, 1, 13, "beží", BG, MUT, "", text.align_center)
-        f_c(tM, 2, 13, str.tostring(nOpn), BG, TX, "", text.align_center)
-        f_c(tM, 3, 13, "", BG, TX, "", text.align_center)
-        f_c(tM, 4, 13, "živý ponor + P/L z grafu", BG, MUT, "", text.align_left)
-        f_c(tM, 5, 13, "", BG, TX, "", text.align_center)
-        f_c(tM, 0, 14, "BEZ METRÍK", cNoM, f_txtOn(cNoM), "", text.align_center)
-        f_c(tM, 1, 14, "iba TP", BG, MUT, "", text.align_center)
-        f_c(tM, 2, 14, str.tostring(nNoM), BG, TX, "", text.align_center)
-        f_c(tM, 3, 14, "", BG, TX, "", text.align_center)
-        f_c(tM, 4, 14, "prerušovaná čiara TP", BG, MUT, "", text.align_left)
-        f_c(tM, 5, 14, "", BG, TX, "", text.align_center)
+            table.cell(tM, 0, 8 + k, f_clsName(k), text_color = f_txtOn(cc), bgcolor = cc, text_size = TS)
+            table.cell(tM, 1, 8 + k, f_rng(k), text_color = TX, bgcolor = BG, text_size = TS)
+            table.cell(tM, 2, 8 + k, str.tostring(n), text_color = TX, bgcolor = BG, text_size = TS)
+            table.cell(tM, 3, 8 + k, str.tostring(pct, "0.0") + " %", text_color = TX, bgcolor = BG, text_size = TS)
+            table.cell(tM, 4, 8 + k, nb > 0 ? str.repeat("█", nb) : "·", text_color = cc, bgcolor = BG, text_size = TS, text_halign = text.align_left)
+            table.cell(tM, 5, 8 + k, n > 0 ? f_dur(array.get(cH, k) / n) : "—", text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 0, 13, "OTVORENÝ", text_color = f_txtOn(cOpen), bgcolor = cOpen, text_size = TS)
+        table.cell(tM, 1, 13, "beží", text_color = MUT, bgcolor = BG, text_size = TS)
+        table.cell(tM, 2, 13, str.tostring(nOpn), text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 3, 13, "", text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 4, 13, "živý ponor + P/L z grafu", text_color = MUT, bgcolor = BG, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 5, 13, "", text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 0, 14, "BEZ METRÍK", text_color = f_txtOn(cNoM), bgcolor = cNoM, text_size = TS)
+        table.cell(tM, 1, 14, "iba TP", text_color = MUT, bgcolor = BG, text_size = TS)
+        table.cell(tM, 2, 14, str.tostring(nNoM), text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 3, 14, "", text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 4, 14, "prerušovaná čiara TP", text_color = MUT, bgcolor = BG, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 5, 14, "", text_color = TX, bgcolor = BG, text_size = TS)
 
-    // ── tabuľka: mesačný prehľad + TOP ponory
+    // ── 4) tabuľka: mesačný prehľad + TOP ponory
     int r = 0
-    if showMon and mK.size() > 0
-        if first
-            tD.merge_cells(0, r, 6, r)
-        f_c(tD, 0, r, "MESAČNÝ PREHĽAD", HD, TX, "", text.align_center)
+    int nMonths = math.min(array.size(mK), 24)
+    if showMon and nMonths > 0
+        table.cell(tD, 0, r, "MESAČNÝ PREHĽAD", text_color = TX, bgcolor = HD, text_size = TS)
         r += 1
-        f_c(tD, 0, r, "Mesiac", HD, MUT, "", text.align_center)
-        f_c(tD, 1, r, "Sig.", HD, MUT, "Všetky signály v mesiaci", text.align_center)
-        f_c(tD, 2, r, "TP ✓", HD, MUT, "", text.align_center)
-        f_c(tD, 3, r, "Ø ponor", HD, MUT, "", text.align_center)
-        f_c(tD, 4, r, "Max ponor", HD, MUT, "", text.align_center)
-        f_c(tD, 5, r, "Ø trvanie", HD, MUT, "", text.align_center)
-        f_c(tD, 6, r, "> " + str.tostring(th2, "0") + " $", HD, MUT, "Počet TP ✓ obchodov s ponorom nad prahom MIERNY", text.align_center)
+        table.cell(tD, 0, r, "Mesiac", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 1, r, "Sig.", text_color = MUT, bgcolor = HD, text_size = TS, tooltip = "Všetky signály v mesiaci")
+        table.cell(tD, 2, r, "TP ✓", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 3, r, "Ø ponor", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 4, r, "Max ponor", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 5, r, "Ø trvanie", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 6, r, "> " + str.tostring(th2, "0") + " $", text_color = MUT, bgcolor = HD, text_size = TS, tooltip = "Počet TP ✓ obchodov s ponorom nad prahom MIERNY")
         r += 1
-        for mi = 0 to math.min(mK.size(), 24) - 1
-            int   h   = mH.get(mi)
-            float aM  = h > 0 ? mSM.get(mi) / h : na
-            float mX  = h > 0 ? mMx.get(mi) : na
-            float aH  = h > 0 ? mSH.get(mi) / h : na
-            int   dp  = mDp.get(mi)
-            f_c(tD, 0, r, f_mon(mK.get(mi)), HD, TX, "", text.align_left)
-            f_c(tD, 1, r, str.tostring(mN.get(mi)), BG, TX, "", text.align_center)
-            f_c(tD, 2, r, str.tostring(h), BG, cZone, "", text.align_center)
-            f_c(tD, 3, r, na(aM) ? "—" : f_px(aM) + " $", na(aM) ? BG : color.new(f_clsCol(f_cls(aM)), 60), TX, "", text.align_center)
-            f_c(tD, 4, r, na(mX) ? "—" : f_px(mX) + " $", na(mX) ? BG : color.new(f_clsCol(f_cls(mX)), 45), TX, "", text.align_center)
-            f_c(tD, 5, r, f_dur(aH), BG, TX, "", text.align_center)
-            f_c(tD, 6, r, str.tostring(dp), dp > 0 ? color.new(c3, 70) : BG, TX, "", text.align_center)
+        for mi = 0 to nMonths - 1
+            int   h  = array.get(mH, mi)
+            float aM = h > 0 ? array.get(mSM, mi) / h : na
+            float mX = h > 0 ? array.get(mMx, mi) : na
+            float aH = h > 0 ? array.get(mSH, mi) / h : na
+            int   dp = array.get(mDp, mi)
+            table.cell(tD, 0, r, f_mon(array.get(mK, mi)), text_color = TX, bgcolor = HD, text_size = TS, text_halign = text.align_left)
+            table.cell(tD, 1, r, str.tostring(array.get(mN, mi)), text_color = TX, bgcolor = BG, text_size = TS)
+            table.cell(tD, 2, r, str.tostring(h), text_color = cZone, bgcolor = BG, text_size = TS)
+            table.cell(tD, 3, r, na(aM) ? "—" : f_px(aM) + " $", text_color = TX, bgcolor = na(aM) ? BG : color.new(f_clsCol(f_cls(aM)), 60), text_size = TS)
+            table.cell(tD, 4, r, na(mX) ? "—" : f_px(mX) + " $", text_color = TX, bgcolor = na(mX) ? BG : color.new(f_clsCol(f_cls(mX)), 45), text_size = TS)
+            table.cell(tD, 5, r, f_dur(aH), text_color = TX, bgcolor = BG, text_size = TS)
+            table.cell(tD, 6, r, str.tostring(dp), text_color = TX, bgcolor = dp > 0 ? color.new(c3, 70) : BG, text_size = TS)
             r += 1
-    if showTop and tV.size() > 0
-        if first
-            tD.merge_cells(0, r, 6, r)
-        int nTop = math.min(topN, tV.size())
-        f_c(tD, 0, r, "TOP " + str.tostring(nTop) + " NAJHLBŠÍCH PONOROV", HD, TX, "", text.align_center)
+    if showTop and array.size(tV) > 0
+        int nTop = math.min(topN, array.size(tV))
+        table.cell(tD, 0, r, "TOP " + str.tostring(nTop) + " NAJHLBŠÍCH PONOROV", text_color = TX, bgcolor = HD, text_size = TS)
         r += 1
-        f_c(tD, 0, r, "#", HD, MUT, "", text.align_center)
-        f_c(tD, 1, r, "Dátum", HD, MUT, "", text.align_center)
-        f_c(tD, 2, r, "Stav", HD, MUT, "", text.align_center)
-        f_c(tD, 3, r, "Ponor", HD, MUT, "", text.align_center)
-        f_c(tD, 4, r, "@ " + str.tostring(lot, "0.00") + " lot", HD, MUT, "", text.align_center)
-        f_c(tD, 5, r, "Trvanie", HD, MUT, "", text.align_center)
-        f_c(tD, 6, r, "Zisk TP", HD, MUT, "", text.align_center)
+        table.cell(tD, 0, r, "#", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 1, r, "Dátum", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 2, r, "Stav", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 3, r, "Ponor", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 4, r, "@ " + str.tostring(lot, "0.00") + " lot", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 5, r, "Trvanie", text_color = MUT, bgcolor = HD, text_size = TS)
+        table.cell(tD, 6, r, "Zisk TP", text_color = MUT, bgcolor = HD, text_size = TS)
         r += 1
-        array<int> ord = tV.sort_indices(order.descending)
+        array<int> ord = array.sort_indices(tV, order.descending)
         for j = 0 to nTop - 1
-            int   i  = tI.get(ord.get(j))
+            int   i  = array.get(tI, array.get(ord, j))
             int   s  = f_st(i)
-            float ma = tV.get(ord.get(j))
+            float ma = array.get(tV, array.get(ord, j))
             float hr = f_hr(i)
             color cc = f_clsCol(f_cls(ma))
             [full, cmp, num, tip] = f_lbl(i)
-            f_c(tD, 0, r, num, HD, TX, tip, text.align_center)
-            f_c(tD, 1, r, str.format_time(array.get(T, i), "dd.MM.yy HH:mm", tz), BG, TX, tip, text.align_center)
-            f_c(tD, 2, r, s == 2 ? "OTVORENÝ" : s == 4 ? "TP ✓ graf" : "TP ✓", s == 2 ? cOpen : BG, s == 2 ? f_txtOn(cOpen) : cZone, "", text.align_center)
-            f_c(tD, 3, r, f_px(ma) + " $", cc, f_txtOn(cc), tip, text.align_center)
-            f_c(tD, 4, r, str.tostring(ma * 100 * lot, "0") + " USD", BG, TX, "", text.align_center)
-            f_c(tD, 5, r, s == 2 ? "beží " + f_dur((nz(time_close, timenow) - array.get(T, i)) / 3600000.0) : f_dur(hr), BG, TX, "", text.align_center)
-            f_c(tD, 6, r, "+" + f_px(math.abs(array.get(TP, i) - array.get(EN, i))) + " $", BG, cZone, "", text.align_center)
+            table.cell(tD, 0, r, num, text_color = TX, bgcolor = HD, text_size = TS, tooltip = tip)
+            table.cell(tD, 1, r, str.format_time(array.get(T, i), "dd.MM.yy HH:mm", tz), text_color = TX, bgcolor = BG, text_size = TS, tooltip = tip)
+            table.cell(tD, 2, r, s == 2 ? "OTVORENÝ" : s == 4 ? "TP ✓ graf" : "TP ✓", text_color = s == 2 ? f_txtOn(cOpen) : cZone, bgcolor = s == 2 ? cOpen : BG, text_size = TS)
+            table.cell(tD, 3, r, f_px(ma) + " $", text_color = f_txtOn(cc), bgcolor = cc, text_size = TS, tooltip = tip)
+            table.cell(tD, 4, r, str.tostring(ma * 100 * lot, "0") + " USD", text_color = TX, bgcolor = BG, text_size = TS)
+            table.cell(tD, 5, r, s == 2 ? "beží " + f_dur((nowT - array.get(T, i)) / 3600000.0) : f_dur(hr), text_color = TX, bgcolor = BG, text_size = TS)
+            table.cell(tD, 6, r, "+" + f_px(math.abs(array.get(TP, i) - array.get(EN, i))) + " $", text_color = cZone, bgcolor = BG, text_size = TS)
             r += 1
