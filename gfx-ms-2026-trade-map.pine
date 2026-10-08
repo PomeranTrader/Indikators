@@ -331,6 +331,7 @@ var table tM = table.new(f_pos(posMain), 6, 15, bgcolor = BG, frame_color = BRD,
 var table tD = table.new(f_pos(posDet), 7, 45, bgcolor = BG, frame_color = BRD, frame_width = 1, border_color = BRD, border_width = 1)
 
 // ───────────────────────────── HLAVNÝ BEH ─────────────────────────────
+plot(na, "GFX MS", display = display.none)   // kompilátor vyžaduje aspoň jeden plot; kreslenie je vo funkciách
 var array<box>   sBx = array.new<box>()
 var array<line>  sLn = array.new<line>()
 var array<label> sLb = array.new<label>()
