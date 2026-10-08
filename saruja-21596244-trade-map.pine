@@ -486,6 +486,8 @@ if barstate.islast
             bZ := math.max(bZ, b1)
         else if b1 >= 0
             dB.set(b1, dB.get(b1) + PR.get(i))     // otvorený pred prvou sviečkou grafu, zatvorený v nej
+            bA := bA < 0 ? b1 : math.min(bA, b1)
+            bZ := math.max(bZ, b1)
         else
             bal0 += PR.get(i)                        // zatvorený pred prvou sviečkou grafu – zisk je už v zostatku
     float bal    = bal0
