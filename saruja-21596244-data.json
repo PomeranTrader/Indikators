@@ -1,0 +1,1424 @@
+{
+ "account": {
+  "number": "21596244",
+  "name": "SARUJA",
+  "platform": "MT4 Pro USD",
+  "symbol": "XAUUSD",
+  "source": "period=3 na stránke, bez prepínača obdobia",
+  "time_note": "ako na stránke, neprepočítané"
+ },
+ "deposits": [
+  {
+   "time": "2026-08-22 02:51:34",
+   "amount": 10000.0,
+   "ticket": "153805883"
+  }
+ ],
+ "trades": [
+  {
+   "ticket": "153975639",
+   "open": "2026-09-01 11:03:03",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 1.0,
+   "symbol": "XAUUSD",
+   "open_price": 4415.27,
+   "close": "2026-09-01 11:04:09",
+   "close_price": 4411.78,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 349.0,
+   "n": 1,
+   "dur_h": 0.018333333333333333,
+   "dur_txt": "1 min",
+   "move": 3.49,
+   "pips": 35,
+   "profit_calc": 349.0,
+   "profit_per_lot": 349.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 10349.0
+  },
+  {
+   "ticket": "153979642",
+   "open": "2026-09-01 12:51:39",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4371.03,
+   "close": "2026-09-01 15:24:14",
+   "close_price": 4366.94,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 81.8,
+   "n": 2,
+   "dur_h": 2.5430555555555556,
+   "dur_txt": "2h 33m",
+   "move": 4.09,
+   "pips": 41,
+   "profit_calc": 81.8,
+   "profit_per_lot": 409.0,
+   "check_ok": true,
+   "basket": 1,
+   "balance_after": 10430.8
+  },
+  {
+   "ticket": "153980630",
+   "open": "2026-09-01 13:29:20",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.1,
+   "symbol": "XAUUSD",
+   "open_price": 4385.01,
+   "close": "2026-09-01 15:24:15",
+   "close_price": 4367.33,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 176.8,
+   "n": 3,
+   "dur_h": 1.9152777777777779,
+   "dur_txt": "1h 55m",
+   "move": 17.68,
+   "pips": 177,
+   "profit_calc": 176.8,
+   "profit_per_lot": 1768.0,
+   "check_ok": true,
+   "basket": 1,
+   "balance_after": 10607.6
+  },
+  {
+   "ticket": "154006559",
+   "open": "2026-09-02 10:23:21",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.1,
+   "symbol": "XAUUSD",
+   "open_price": 4327.13,
+   "close": "2026-09-02 12:25:21",
+   "close_price": 4306.99,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 201.4,
+   "n": 4,
+   "dur_h": 2.033333333333333,
+   "dur_txt": "2h 02m",
+   "move": 20.14,
+   "pips": 201,
+   "profit_calc": 201.4,
+   "profit_per_lot": 2014.0,
+   "check_ok": true,
+   "basket": 2,
+   "balance_after": 10809.0
+  },
+  {
+   "ticket": "154007720",
+   "open": "2026-09-02 11:12:55",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.1,
+   "symbol": "XAUUSD",
+   "open_price": 4327.55,
+   "close": "2026-09-02 12:25:22",
+   "close_price": 4307.34,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 202.1,
+   "n": 5,
+   "dur_h": 1.2075,
+   "dur_txt": "1h 12m",
+   "move": 20.21,
+   "pips": 202,
+   "profit_calc": 202.1,
+   "profit_per_lot": 2021.0,
+   "check_ok": true,
+   "basket": 2,
+   "balance_after": 11011.1
+  },
+  {
+   "ticket": "154017219",
+   "open": "2026-09-02 16:44:45",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4377.02,
+   "close": "2026-09-08 19:16:47",
+   "close_price": 4386.28,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": -185.2,
+   "n": 6,
+   "dur_h": 146.5338888888889,
+   "dur_txt": "6d 2h 32m",
+   "move": -9.26,
+   "pips": -93,
+   "profit_calc": -185.2,
+   "profit_per_lot": -926.0,
+   "check_ok": true,
+   "basket": 3,
+   "balance_after": 11667.5
+  },
+  {
+   "ticket": "154032972",
+   "open": "2026-09-03 10:39:00",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4428.01,
+   "close": "2026-09-08 19:16:46",
+   "close_price": 4385.93,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 841.6,
+   "n": 7,
+   "dur_h": 128.62944444444443,
+   "dur_txt": "5d 8h 38m",
+   "move": 42.08,
+   "pips": 421,
+   "profit_calc": 841.6,
+   "profit_per_lot": 4208.0,
+   "check_ok": true,
+   "basket": 3,
+   "balance_after": 11852.7
+  },
+  {
+   "ticket": "154140079",
+   "open": "2026-09-09 10:44:36",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4409.53,
+   "close": "2026-09-09 18:32:04",
+   "close_price": 4394.0,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 465.9,
+   "n": 8,
+   "dur_h": 7.791111111111111,
+   "dur_txt": "7h 47m",
+   "move": 15.53,
+   "pips": 155,
+   "profit_calc": 465.9,
+   "profit_per_lot": 1553.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 12133.4
+  },
+  {
+   "ticket": "154161209",
+   "open": "2026-09-09 20:00:32",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4410.52,
+   "close": "2026-09-09 22:36:24",
+   "close_price": 4397.56,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 388.8,
+   "n": 9,
+   "dur_h": 2.597777777777778,
+   "dur_txt": "2h 36m",
+   "move": 12.96,
+   "pips": 130,
+   "profit_calc": 388.8,
+   "profit_per_lot": 1296.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 12522.2
+  },
+  {
+   "ticket": "154189043",
+   "open": "2026-09-10 16:30:41",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4356.11,
+   "close": "2026-09-10 21:15:21",
+   "close_price": 4340.45,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 469.8,
+   "n": 10,
+   "dur_h": 4.7444444444444445,
+   "dur_txt": "4h 45m",
+   "move": 15.66,
+   "pips": 157,
+   "profit_calc": 469.8,
+   "profit_per_lot": 1566.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 12992.0
+  },
+  {
+   "ticket": "154211690",
+   "open": "2026-09-11 10:11:38",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4354.01,
+   "close": "2026-09-11 12:15:11",
+   "close_price": 4342.32,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 350.7,
+   "n": 11,
+   "dur_h": 2.0591666666666666,
+   "dur_txt": "2h 04m",
+   "move": 11.69,
+   "pips": 117,
+   "profit_calc": 350.7,
+   "profit_per_lot": 1169.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 13342.7
+  },
+  {
+   "ticket": "154257741",
+   "open": "2026-09-14 06:37:21",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4330.72,
+   "close": "2026-09-14 12:22:41",
+   "close_price": 4289.51,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 1236.3,
+   "n": 12,
+   "dur_h": 5.7555555555555555,
+   "dur_txt": "5h 45m",
+   "move": 41.21,
+   "pips": 412,
+   "profit_calc": 1236.3,
+   "profit_per_lot": 4121.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 14579.0
+  },
+  {
+   "ticket": "154277202",
+   "open": "2026-09-14 17:08:33",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4270.37,
+   "close": "2026-09-16 21:57:02",
+   "close_price": 4264.99,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 161.4,
+   "n": 13,
+   "dur_h": 52.808055555555555,
+   "dur_txt": "2d 4h 48m",
+   "move": 5.38,
+   "pips": 54,
+   "profit_calc": 161.4,
+   "profit_per_lot": 538.0,
+   "check_ok": true,
+   "basket": 4,
+   "balance_after": 14740.4
+  },
+  {
+   "ticket": "154283564",
+   "open": "2026-09-14 19:08:28",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4291.05,
+   "close": "2026-09-16 21:57:03",
+   "close_price": 4264.66,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 527.8,
+   "n": 14,
+   "dur_h": 50.80972222222222,
+   "dur_txt": "2d 2h 49m",
+   "move": 26.39,
+   "pips": 264,
+   "profit_calc": 527.8,
+   "profit_per_lot": 2639.0,
+   "check_ok": true,
+   "basket": 4,
+   "balance_after": 15268.2
+  },
+  {
+   "ticket": "154412676",
+   "open": "2026-09-17 10:51:38",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4331.01,
+   "close": "2026-09-22 10:53:09",
+   "close_price": 4302.98,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 1121.2,
+   "n": 15,
+   "dur_h": 120.02527777777777,
+   "dur_txt": "5d 0h 02m",
+   "move": 28.03,
+   "pips": 280,
+   "profit_calc": 1121.2,
+   "profit_per_lot": 2803.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 16389.4
+  },
+  {
+   "ticket": "154554928",
+   "open": "2026-09-22 13:29:12",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4330.0,
+   "close": "2026-09-23 14:42:37",
+   "close_price": 4302.1,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 1116.0,
+   "n": 16,
+   "dur_h": 25.22361111111111,
+   "dur_txt": "1d 1h 13m",
+   "move": 27.9,
+   "pips": 279,
+   "profit_calc": 1116.0,
+   "profit_per_lot": 2790.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 17505.4
+  },
+  {
+   "ticket": "154816797",
+   "open": "2026-09-24 08:38:13",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4287.04,
+   "close": "2026-09-24 11:17:07",
+   "close_price": 4272.04,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 600.0,
+   "n": 17,
+   "dur_h": 2.6483333333333334,
+   "dur_txt": "2h 39m",
+   "move": 15.0,
+   "pips": 150,
+   "profit_calc": 600.0,
+   "profit_per_lot": 1500.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 18105.4
+  },
+  {
+   "ticket": "155132732",
+   "open": "2026-09-24 19:31:21",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4277.04,
+   "close": "2026-09-24 19:32:03",
+   "close_price": 4272.91,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 165.2,
+   "n": 18,
+   "dur_h": 0.011666666666666667,
+   "dur_txt": "1 min",
+   "move": 4.13,
+   "pips": 41,
+   "profit_calc": 165.2,
+   "profit_per_lot": 413.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 18270.6
+  },
+  {
+   "ticket": "155144454",
+   "open": "2026-09-24 19:39:50",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4277.04,
+   "close": "2026-09-24 19:45:15",
+   "close_price": 4273.14,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 156.0,
+   "n": 19,
+   "dur_h": 0.09027777777777778,
+   "dur_txt": "5 min",
+   "move": 3.9,
+   "pips": 39,
+   "profit_calc": 156.0,
+   "profit_per_lot": 390.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 18426.6
+  },
+  {
+   "ticket": "155308616",
+   "open": "2026-09-25 09:46:38",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4277.0,
+   "close": "2026-09-25 17:01:38",
+   "close_price": 4268.98,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 320.8,
+   "n": 20,
+   "dur_h": 7.25,
+   "dur_txt": "7h 15m",
+   "move": 8.02,
+   "pips": 80,
+   "profit_calc": 320.8,
+   "profit_per_lot": 802.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 18747.4
+  },
+  {
+   "ticket": "155777211",
+   "open": "2026-09-28 15:17:00",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4166.62,
+   "close": "2026-09-28 15:44:38",
+   "close_price": 4143.84,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 911.2,
+   "n": 21,
+   "dur_h": 0.46055555555555555,
+   "dur_txt": "28 min",
+   "move": 22.78,
+   "pips": 228,
+   "profit_calc": 911.2,
+   "profit_per_lot": 2278.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 19658.6
+  },
+  {
+   "ticket": "156002213",
+   "open": "2026-09-29 07:25:03",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.4,
+   "symbol": "XAUUSD",
+   "open_price": 4130.04,
+   "close": "2026-10-02 18:01:32",
+   "close_price": 4154.0,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": -958.4,
+   "n": 22,
+   "dur_h": 82.60805555555555,
+   "dur_txt": "3d 10h 36m",
+   "move": -23.96,
+   "pips": -240,
+   "profit_calc": -958.4,
+   "profit_per_lot": -2396.0,
+   "check_ok": true,
+   "basket": 5,
+   "balance_after": 18889.2
+  },
+  {
+   "ticket": "158112711",
+   "open": "2026-10-01 08:58:15",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4187.02,
+   "close": "2026-10-02 15:17:32",
+   "close_price": 4177.57,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 189.0,
+   "n": 23,
+   "dur_h": 30.32138888888889,
+   "dur_txt": "1d 6h 19m",
+   "move": 9.45,
+   "pips": 94,
+   "profit_calc": 189.0,
+   "profit_per_lot": 945.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 19847.6
+  },
+  {
+   "ticket": "158863682",
+   "open": "2026-10-02 15:37:53",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4220.25,
+   "close": "2026-10-02 18:01:32",
+   "close_price": 4154.22,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 1320.6,
+   "n": 24,
+   "dur_h": 2.3941666666666666,
+   "dur_txt": "2h 24m",
+   "move": 66.03,
+   "pips": 660,
+   "profit_calc": 1320.6,
+   "profit_per_lot": 6603.0,
+   "check_ok": true,
+   "basket": 5,
+   "balance_after": 20209.8
+  },
+  {
+   "ticket": "159063221",
+   "open": "2026-10-05 12:12:44",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4166.78,
+   "close": "2026-10-05 18:46:00",
+   "close_price": 4134.71,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 962.1,
+   "n": 25,
+   "dur_h": 6.554444444444444,
+   "dur_txt": "6h 33m",
+   "move": 32.07,
+   "pips": 321,
+   "profit_calc": 962.1,
+   "profit_per_lot": 3207.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 21171.9
+  },
+  {
+   "ticket": "159231524",
+   "open": "2026-10-06 08:56:25",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4121.0,
+   "close": "2026-10-07 09:59:29",
+   "close_price": 4130.85,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": -295.5,
+   "n": 26,
+   "dur_h": 25.051111111111112,
+   "dur_txt": "1d 1h 03m",
+   "move": -9.85,
+   "pips": -98,
+   "profit_calc": -295.5,
+   "profit_per_lot": -985.0,
+   "check_ok": true,
+   "basket": 6,
+   "balance_after": 20876.4
+  },
+  {
+   "ticket": "159232831",
+   "open": "2026-10-06 09:32:31",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4133.55,
+   "close": "2026-10-07 09:59:29",
+   "close_price": 4130.85,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 54.0,
+   "n": 27,
+   "dur_h": 24.449444444444445,
+   "dur_txt": "1d 0h 27m",
+   "move": 2.7,
+   "pips": 27,
+   "profit_calc": 54.0,
+   "profit_per_lot": 270.0,
+   "check_ok": true,
+   "basket": 6,
+   "balance_after": 20930.4
+  },
+  {
+   "ticket": "159312108",
+   "open": "2026-10-06 18:26:15",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4163.5,
+   "close": "2026-10-07 09:59:29",
+   "close_price": 4130.85,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 653.0,
+   "n": 28,
+   "dur_h": 15.553888888888888,
+   "dur_txt": "15h 33m",
+   "move": 32.65,
+   "pips": 326,
+   "profit_calc": 653.0,
+   "profit_per_lot": 3265.0,
+   "check_ok": true,
+   "basket": 6,
+   "balance_after": 21583.4
+  },
+  {
+   "ticket": "159350626",
+   "open": "2026-10-07 17:59:49",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4103.9,
+   "close": "2026-10-07 20:56:37",
+   "close_price": 4109.68,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": -173.4,
+   "n": 29,
+   "dur_h": 2.9466666666666668,
+   "dur_txt": "2h 57m",
+   "move": -5.78,
+   "pips": -58,
+   "profit_calc": -173.4,
+   "profit_per_lot": -578.0,
+   "check_ok": true,
+   "basket": 7,
+   "balance_after": 21640.4
+  },
+  {
+   "ticket": "159364686",
+   "open": "2026-10-07 20:18:30",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.2,
+   "symbol": "XAUUSD",
+   "open_price": 4121.02,
+   "close": "2026-10-07 20:56:23",
+   "close_price": 4109.5,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 230.4,
+   "n": 30,
+   "dur_h": 0.6313888888888889,
+   "dur_txt": "38 min",
+   "move": 11.52,
+   "pips": 115,
+   "profit_calc": 230.4,
+   "profit_per_lot": 1152.0,
+   "check_ok": true,
+   "basket": 7,
+   "balance_after": 21813.8
+  },
+  {
+   "ticket": "159384937",
+   "open": "2026-10-08 07:34:29",
+   "type": "SELL",
+   "dir": -1,
+   "lot": 0.3,
+   "symbol": "XAUUSD",
+   "open_price": 4133.39,
+   "close": "2026-10-08 23:54:04",
+   "close_price": 4133.3,
+   "commission": 0.0,
+   "swap": 0.0,
+   "profit": 2.7,
+   "n": 31,
+   "dur_h": 16.32638888888889,
+   "dur_txt": "16h 20m",
+   "move": 0.09,
+   "pips": 1,
+   "profit_calc": 2.7,
+   "profit_per_lot": 9.0,
+   "check_ok": true,
+   "basket": 0,
+   "balance_after": 21643.1
+  }
+ ],
+ "baskets": [
+  {
+   "id": 1,
+   "trades": [
+    2,
+    3
+   ],
+   "lots": 0.3,
+   "net": 258.6,
+   "first_open": "2026-09-01 12:51:39",
+   "close": "2026-09-01 15:24:15",
+   "avg_entry": 4375.69
+  },
+  {
+   "id": 2,
+   "trades": [
+    4,
+    5
+   ],
+   "lots": 0.2,
+   "net": 403.5,
+   "first_open": "2026-09-02 10:23:21",
+   "close": "2026-09-02 12:25:22",
+   "avg_entry": 4327.34
+  },
+  {
+   "id": 3,
+   "trades": [
+    7,
+    6
+   ],
+   "lots": 0.4,
+   "net": 656.4,
+   "first_open": "2026-09-02 16:44:45",
+   "close": "2026-09-08 19:16:47",
+   "avg_entry": 4402.52
+  },
+  {
+   "id": 4,
+   "trades": [
+    13,
+    14
+   ],
+   "lots": 0.5,
+   "net": 689.2,
+   "first_open": "2026-09-14 17:08:33",
+   "close": "2026-09-16 21:57:03",
+   "avg_entry": 4278.64
+  },
+  {
+   "id": 5,
+   "trades": [
+    22,
+    24
+   ],
+   "lots": 0.6,
+   "net": 362.2,
+   "first_open": "2026-09-29 07:25:03",
+   "close": "2026-10-02 18:01:32",
+   "avg_entry": 4160.11
+  },
+  {
+   "id": 6,
+   "trades": [
+    26,
+    27,
+    28
+   ],
+   "lots": 0.7,
+   "net": 411.5,
+   "first_open": "2026-10-06 08:56:25",
+   "close": "2026-10-07 09:59:29",
+   "avg_entry": 4136.73
+  },
+  {
+   "id": 7,
+   "trades": [
+    30,
+    29
+   ],
+   "lots": 0.5,
+   "net": 57.0,
+   "first_open": "2026-10-07 17:59:49",
+   "close": "2026-10-07 20:56:37",
+   "avg_entry": 4110.75
+  }
+ ],
+ "exposure": [
+  {
+   "t": "2026-09-01 11:03:03",
+   "n": 1,
+   "lots": 1.0
+  },
+  {
+   "t": "2026-09-01 11:04:09",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-01 12:51:39",
+   "n": 1,
+   "lots": 0.2
+  },
+  {
+   "t": "2026-09-01 13:29:20",
+   "n": 2,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-09-01 15:24:14",
+   "n": 1,
+   "lots": 0.1
+  },
+  {
+   "t": "2026-09-01 15:24:15",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-02 10:23:21",
+   "n": 1,
+   "lots": 0.1
+  },
+  {
+   "t": "2026-09-02 11:12:55",
+   "n": 2,
+   "lots": 0.2
+  },
+  {
+   "t": "2026-09-02 12:25:21",
+   "n": 1,
+   "lots": 0.1
+  },
+  {
+   "t": "2026-09-02 12:25:22",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-02 16:44:45",
+   "n": 1,
+   "lots": 0.2
+  },
+  {
+   "t": "2026-09-03 10:39:00",
+   "n": 2,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-08 19:16:46",
+   "n": 1,
+   "lots": 0.2
+  },
+  {
+   "t": "2026-09-08 19:16:47",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-09 10:44:36",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-09-09 18:32:04",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-09 20:00:32",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-09-09 22:36:24",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-10 16:30:41",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-09-10 21:15:21",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-11 10:11:38",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-09-11 12:15:11",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-14 06:37:21",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-09-14 12:22:41",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-14 17:08:33",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-09-14 19:08:28",
+   "n": 2,
+   "lots": 0.5
+  },
+  {
+   "t": "2026-09-16 21:57:02",
+   "n": 1,
+   "lots": 0.2
+  },
+  {
+   "t": "2026-09-16 21:57:03",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-17 10:51:38",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-22 10:53:09",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-22 13:29:12",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-23 14:42:37",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-24 08:38:13",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-24 11:17:07",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-24 19:31:21",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-24 19:32:03",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-24 19:39:50",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-24 19:45:15",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-25 09:46:38",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-25 17:01:38",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-28 15:17:00",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-09-28 15:44:38",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-09-29 07:25:03",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-10-01 08:58:15",
+   "n": 2,
+   "lots": 0.6
+  },
+  {
+   "t": "2026-10-02 15:17:32",
+   "n": 1,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-10-02 15:37:53",
+   "n": 2,
+   "lots": 0.6
+  },
+  {
+   "t": "2026-10-02 18:01:32",
+   "n": 1,
+   "lots": 0.2
+  },
+  {
+   "t": "2026-10-02 18:01:32",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-10-05 12:12:44",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-10-05 18:46:00",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-10-06 08:56:25",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-10-06 09:32:31",
+   "n": 2,
+   "lots": 0.5
+  },
+  {
+   "t": "2026-10-06 18:26:15",
+   "n": 3,
+   "lots": 0.7
+  },
+  {
+   "t": "2026-10-07 09:59:29",
+   "n": 2,
+   "lots": 0.4
+  },
+  {
+   "t": "2026-10-07 09:59:29",
+   "n": 1,
+   "lots": 0.2
+  },
+  {
+   "t": "2026-10-07 09:59:29",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-10-07 17:59:49",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-10-07 20:18:30",
+   "n": 2,
+   "lots": 0.5
+  },
+  {
+   "t": "2026-10-07 20:56:23",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-10-07 20:56:37",
+   "n": 0,
+   "lots": 0.0
+  },
+  {
+   "t": "2026-10-08 07:34:29",
+   "n": 1,
+   "lots": 0.3
+  },
+  {
+   "t": "2026-10-08 23:54:04",
+   "n": 0,
+   "lots": 0.0
+  }
+ ],
+ "weekly": [
+  {
+   "week": "2026-W36",
+   "monday": "2026-08-31",
+   "trades": 5,
+   "wins": 5,
+   "net": 1011.1,
+   "lots": 1.5,
+   "avg_dur_h": 1.54
+  },
+  {
+   "week": "2026-W37",
+   "monday": "2026-09-07",
+   "trades": 6,
+   "wins": 5,
+   "net": 2331.6,
+   "lots": 1.6,
+   "avg_dur_h": 48.73
+  },
+  {
+   "week": "2026-W38",
+   "monday": "2026-09-14",
+   "trades": 3,
+   "wins": 3,
+   "net": 1925.5,
+   "lots": 0.8,
+   "avg_dur_h": 36.46
+  },
+  {
+   "week": "2026-W39",
+   "monday": "2026-09-21",
+   "trades": 6,
+   "wins": 6,
+   "net": 3479.2,
+   "lots": 2.4,
+   "avg_dur_h": 25.87
+  },
+  {
+   "week": "2026-W40",
+   "monday": "2026-09-28",
+   "trades": 4,
+   "wins": 3,
+   "net": 1462.4,
+   "lots": 1.2,
+   "avg_dur_h": 28.95
+  },
+  {
+   "week": "2026-W41",
+   "monday": "2026-10-05",
+   "trades": 7,
+   "wins": 5,
+   "net": 1433.3,
+   "lots": 1.8,
+   "avg_dur_h": 13.07
+  }
+ ],
+ "stats": {
+  "deposit": 10000.0,
+  "withdrawals": 0,
+  "trades": 31,
+  "wins": 27,
+  "losses": 4,
+  "win_rate": 87.1,
+  "net": 11643.1,
+  "gross_profit": 13255.6,
+  "gross_loss": 1612.5,
+  "profit_factor": 8.22,
+  "avg_win": 490.95,
+  "avg_loss": -403.12,
+  "loss_win_ratio": 0.82,
+  "expectancy": 375.58,
+  "largest_win": 1320.6,
+  "largest_loss": -958.4,
+  "roi_pct": 116.4,
+  "final_balance": 21643.1,
+  "max_closed_dd": 958.4,
+  "max_closed_dd_pct": 4.83,
+  "max_closed_dd_at": "2026-10-02 18:01:32",
+  "avg_dur_h": 24.9,
+  "med_dur_h": 5.76,
+  "max_dur_h": 146.53,
+  "avg_dur_win_h": 19.07,
+  "avg_dur_loss_h": 64.28,
+  "total_lots": 9.3,
+  "avg_lot": 0.3,
+  "max_lot": 1.0,
+  "max_concurrent": 3,
+  "max_concurrent_at": "2026-10-06 18:26:15",
+  "max_concurrent_lots": 1.0,
+  "max_concurrent_lots_at": "2026-09-01 11:03:03",
+  "best_streak": 15,
+  "worst_streak": 1,
+  "baskets": 7,
+  "trades_in_baskets": 15,
+  "sell_pct": 100.0,
+  "days": 38,
+  "first_open": "2026-09-01 11:03:03",
+  "last_close": "2026-10-08 23:54:04",
+  "balance_curve": [
+   {
+    "t": "2026-08-22 02:51:34",
+    "bal": 10000.0,
+    "n": 0
+   },
+   {
+    "t": "2026-09-01 11:04:09",
+    "bal": 10349.0,
+    "n": 1
+   },
+   {
+    "t": "2026-09-01 15:24:14",
+    "bal": 10430.8,
+    "n": 2
+   },
+   {
+    "t": "2026-09-01 15:24:15",
+    "bal": 10607.6,
+    "n": 3
+   },
+   {
+    "t": "2026-09-02 12:25:21",
+    "bal": 10809.0,
+    "n": 4
+   },
+   {
+    "t": "2026-09-02 12:25:22",
+    "bal": 11011.1,
+    "n": 5
+   },
+   {
+    "t": "2026-09-08 19:16:46",
+    "bal": 11852.7,
+    "n": 7
+   },
+   {
+    "t": "2026-09-08 19:16:47",
+    "bal": 11667.5,
+    "n": 6
+   },
+   {
+    "t": "2026-09-09 18:32:04",
+    "bal": 12133.4,
+    "n": 8
+   },
+   {
+    "t": "2026-09-09 22:36:24",
+    "bal": 12522.2,
+    "n": 9
+   },
+   {
+    "t": "2026-09-10 21:15:21",
+    "bal": 12992.0,
+    "n": 10
+   },
+   {
+    "t": "2026-09-11 12:15:11",
+    "bal": 13342.7,
+    "n": 11
+   },
+   {
+    "t": "2026-09-14 12:22:41",
+    "bal": 14579.0,
+    "n": 12
+   },
+   {
+    "t": "2026-09-16 21:57:02",
+    "bal": 14740.4,
+    "n": 13
+   },
+   {
+    "t": "2026-09-16 21:57:03",
+    "bal": 15268.2,
+    "n": 14
+   },
+   {
+    "t": "2026-09-22 10:53:09",
+    "bal": 16389.4,
+    "n": 15
+   },
+   {
+    "t": "2026-09-23 14:42:37",
+    "bal": 17505.4,
+    "n": 16
+   },
+   {
+    "t": "2026-09-24 11:17:07",
+    "bal": 18105.4,
+    "n": 17
+   },
+   {
+    "t": "2026-09-24 19:32:03",
+    "bal": 18270.6,
+    "n": 18
+   },
+   {
+    "t": "2026-09-24 19:45:15",
+    "bal": 18426.6,
+    "n": 19
+   },
+   {
+    "t": "2026-09-25 17:01:38",
+    "bal": 18747.4,
+    "n": 20
+   },
+   {
+    "t": "2026-09-28 15:44:38",
+    "bal": 19658.6,
+    "n": 21
+   },
+   {
+    "t": "2026-10-02 15:17:32",
+    "bal": 19847.6,
+    "n": 23
+   },
+   {
+    "t": "2026-10-02 18:01:32",
+    "bal": 18889.2,
+    "n": 22
+   },
+   {
+    "t": "2026-10-02 18:01:32",
+    "bal": 20209.8,
+    "n": 24
+   },
+   {
+    "t": "2026-10-05 18:46:00",
+    "bal": 21171.9,
+    "n": 25
+   },
+   {
+    "t": "2026-10-07 09:59:29",
+    "bal": 20876.4,
+    "n": 26
+   },
+   {
+    "t": "2026-10-07 09:59:29",
+    "bal": 20930.4,
+    "n": 27
+   },
+   {
+    "t": "2026-10-07 09:59:29",
+    "bal": 21583.4,
+    "n": 28
+   },
+   {
+    "t": "2026-10-07 20:56:23",
+    "bal": 21813.8,
+    "n": 30
+   },
+   {
+    "t": "2026-10-07 20:56:37",
+    "bal": 21640.4,
+    "n": 29
+   },
+   {
+    "t": "2026-10-08 23:54:04",
+    "bal": 21643.1,
+    "n": 31
+   }
+  ],
+  "all_checks_ok": true
+ }
+}
