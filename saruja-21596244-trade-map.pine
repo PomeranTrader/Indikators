@@ -529,7 +529,7 @@ if barstate.islast
     int   tFlMin = na
     int   tEqDD  = na
     if bA >= 0
-        for b = bA to bZ
+        for b = 0 to bZ                              // od prvej sviečky, aby sa započítal aj vklad pred prvým obchodom
             bal += dB.get(b)
             float f  = fl.get(b)
             float eq = bal + f
@@ -675,8 +675,9 @@ if barstate.islast
                     if BK.get(i) != k or B0.get(i) < 0 or B1.get(i) < B0.get(i)
                         continue
                     float mult = D.get(i) * VO.get(i) * OZ
-                    if B1.get(i) > B0.get(i)
-                        for b = B0.get(i) to B1.get(i) - 1
+                    int   bE   = PT.get(i) >= 2 ? B1.get(i) : B1.get(i) - 1
+                    if bE >= B0.get(i)
+                        for b = B0.get(i) to bE
                             bf.set(b - bb0, bf.get(b - bb0) + (bC.get(b) - PO.get(i)) * mult)
                 for j = 0 to bb1 - bb0
                     if bf.get(j) < bkMin
