@@ -1,11 +1,13 @@
 //@version=6
 // =====================================================================
-// GFX MS 2026 – TRADE MAP v3  (ponor • trvanie • TP • štatistiky)
+// GFX MS 2026 – TRADE MAP v4  (ponor • trvanie • TP • štatistiky)
 // Manuálne signály GFX Premier Club 29.12.2025 – 08.10.2026, XAUUSD
 //
 // INŠTALÁCIA (TradingView):
 //   1. Otvor graf XAUUSD (ideálne M5 – H1), dole klikni "Pine Editor".
-//   2. Zmaž obsah editora, vlož celý tento súbor (Ctrl+A, Ctrl+V).
+//   2. Zmaž obsah editora, vlož CELÝ tento súbor (Ctrl+A, Ctrl+V).
+//      Kód má cca 620 riadkov a posledný riadok je "// KONIEC SÚBORU – GFX MS Trade Map v4".
+//      Ak sa vloží iba časť, na grafe sa zobrazí červené upozornenie "KÓD JE NEÚPLNÝ".
 //   3. "Uložiť" (napr. "GFX MS Trade Map") → "Pridať do grafu".
 //
 // ČO VIDÍŠ PRI KAŽDOM OBCHODE:
@@ -26,8 +28,13 @@
 // Dáta: gfx.db setup_metrics (MAE strict fill), otvorené signály podľa stavu 2026-10-07.
 // Časy postov sú UNIX ms (Europe/Bratislava), "✎" = čas postu bol upravený (edited).
 // =====================================================================
-indicator("GFX MS 2026 – Trade Map v3 (ponor • trvanie • TP)", shorttitle = "GFX MS Trade Map v3", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
-plot(close, "XAUUSD close", color = color.new(color.gray, 100), display = display.none, editable = false)
+indicator("GFX MS 2026 – Trade Map v4 (ponor • trvanie • TP)", shorttitle = "GFX MS Trade Map v4", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+
+// Kontrola úplnosti: upozornenie sa nastaví tu a vymaže až na úplnom konci súboru.
+// Ak sa do editora vloží iba časť kódu, ostane na grafe viditeľné.
+var table tWarn = table.new(position.middle_center, 1, 1)
+if barstate.islast
+    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód (cca 620 riadkov, posledný riadok\n\"// KONIEC SÚBORU – GFX MS Trade Map v4\") a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
 
 // ───────────────────────────── VSTUPY ─────────────────────────────
 G_F = "① Filter"
@@ -48,28 +55,29 @@ showHitMk = input.bool(true, "Bod TP hit ◆", group = G_V)
 showDepth = input.bool(true, "Štítok hĺbky ▼ pod zónou ponoru, od", group = G_V, inline = "dp")
 depthMin  = input.float(15.0, "USD", minval = 0, group = G_V, inline = "dp")
 minW      = input.int(20, "Min. šírka zóny (minúty)", minval = 1, group = G_V, tooltip = "Obchody, ktoré trafili TP za pár sekúnd, by inak mali neviditeľnú zónu.")
+showSig   = input.bool(true, "Značka ▼ nad sviečkou v čase postu (farba = ponor)", group = G_V)
 noMLen    = input.int(6, "Dĺžka čiar pri signáloch bez metrík (hodiny)", minval = 1, group = G_V)
-zTr       = input.int(78, "Priehľadnosť zón (0 = plné, 100 = neviditeľné)", minval = 0, maxval = 100, group = G_V)
+zTr       = input.int(65, "Priehľadnosť zón (0 = plné, 100 = neviditeľné)", minval = 0, maxval = 100, group = G_V)
 
 G_L = "③ Štítky"
-lblMode = input.string("Plné", "Režim štítkov", options = ["Plné", "Kompaktné", "Iba číslo", "Skryť"], group = G_L, tooltip = "Plné = všetky údaje na grafe. Kompaktné = číslo, ponor, trvanie. Detail je vždy v tooltipe (prejdi myšou na štítok).")
+lblMode = input.string("Auto", "Režim štítkov", options = ["Auto", "Plné", "Kompaktné", "Iba číslo", "Skryť"], group = G_L, tooltip = "Auto = Plné do H1, Kompaktné do H4, nad H4 iba číslo. Plné = všetky údaje na grafe. Kompaktné = číslo, ponor, trvanie. Detail je vždy v tooltipe (prejdi myšou na štítok).")
 lblSize = input.string("small", "Veľkosť štítkov", options = ["tiny", "small", "normal", "large"], group = G_L)
 showPip = input.bool(true, "Zobraziť aj pipy (1 USD = 10 pip)", group = G_L)
 lot     = input.float(0.10, "Lot pre prepočet na USD (1 lot = 100 oz)", minval = 0.01, step = 0.01, group = G_L)
-tz      = input.string("Europe/Bratislava", "Časová zóna textov", group = G_L)
+tz      = input.string("Europe/Prague", "Časová zóna textov", group = G_L, tooltip = "Europe/Prague = rovnaký čas ako Bratislava (SEČ/SELČ).")
 
 G_C = "④ Prahy a farby ponoru (USD)"
 th1    = input.float(5.0,   "ČISTÝ ≤",   group = G_C, inline = "c0")
-c0     = input.color(#00E676, "",        group = G_C, inline = "c0")
+c0     = input.color(#00C853, "",        group = G_C, inline = "c0")
 th2    = input.float(15.0,  "MIERNY ≤",  group = G_C, inline = "c1")
-c1     = input.color(#C6FF00, "",        group = G_C, inline = "c1")
+c1     = input.color(#AEEA00, "",        group = G_C, inline = "c1")
 th3    = input.float(30.0,  "VÝRAZNÝ ≤", group = G_C, inline = "c2")
 c2     = input.color(#FFAB00, "",        group = G_C, inline = "c2")
 th4    = input.float(100.0, "HLBOKÝ ≤",  group = G_C, inline = "c3")
 c3     = input.color(#FF3D00, "",        group = G_C, inline = "c3")
 c4     = input.color(#D500F9, "EXTRÉM (nad HLBOKÝ)", group = G_C)
 cZone  = input.color(#26A69A, "Zóna zisku / TP", group = G_C, inline = "z")
-cEntry = input.color(#E0E0E0, "Entry", group = G_C, inline = "z")
+cEntry = input.color(#607D8B, "Entry", group = G_C, inline = "z")
 cOpen  = input.color(#2979FF, "Otvorený", group = G_C, inline = "o")
 cNoM   = input.color(#78909C, "Bez metrík", group = G_C, inline = "o")
 
@@ -225,6 +233,21 @@ f_visible(int i) =>
         ok := not na(m) and m >= minMae
     ok
 
+// ───────────────────── ZNAČKY SIGNÁLOV NAD SVIEČKAMI ─────────────────────
+// Séria (plotshape) – viditeľná na každom timeframe, farba = najhorší ponor signálov v danej sviečke.
+var int sp = 0
+int nSig = 0
+int wK   = -2
+int bEnd = na(time_close) ? time + timeframe.in_seconds() * 1000 : time_close
+while sp < array.size(T) and array.get(T, sp) < bEnd
+    int tS = array.get(T, sp)
+    if (bar_index > 0 or tS >= time) and tS >= fromT and tS <= toT
+        nSig += 1
+        wK := math.max(wK, f_cls(f_ma(sp)))
+    sp += 1
+color sigC = wK <= -1 ? cNoM : f_clsCol(wK)
+plotshape(showSig and nSig > 0, "GFX signál", shape.triangledown, location.abovebar, sigC, size = size.small)
+
 // ───────────────────────────── TEXTY ─────────────────────────────
 f_lbl(int i) =>
     int    t0   = array.get(T, i)
@@ -281,6 +304,8 @@ f_mon(int key) =>
 
 TS = f_size(tblSize)
 LS = f_size(lblSize)
+// Auto režim štítkov podľa timeframe
+lblEff = lblMode != "Auto" ? lblMode : timeframe.in_seconds() <= 3600 ? "Plné" : timeframe.in_seconds() <= 14400 ? "Kompaktné" : "Iba číslo"
 var table tM = table.new(f_pos(posMain), 6, 15, bgcolor = BG, frame_color = BRD, frame_width = 1, border_color = BRD, border_width = 1)
 var table tD = table.new(f_pos(posDet), 7, 45, bgcolor = BG, frame_color = BRD, frame_width = 1, border_color = BRD, border_width = 1)
 
@@ -366,8 +391,8 @@ if barstate.islast
                 array.push(gLb, label.new(tHit, tp, "", xloc = xloc.bar_time, style = label.style_diamond, color = color.new(cZone, dim ? 65 : 0), size = size.tiny, tooltip = num + " TP zasiahnutý " + f_dt(tHit) + " po " + f_dur(hr)))
             if showDepth and not na(ma) and ma >= depthMin
                 array.push(gLb, label.new(tMid, ddP, "▼ " + str.tostring(ma, "0.0") + " $", xloc = xloc.bar_time, style = d == 1 ? label.style_label_up : label.style_label_down, color = color.new(cD, dim ? 65 : 10), textcolor = f_txtOn(cD), size = size.tiny, tooltip = tip))
-        if lblMode != "Skryť"
-            string txt = lblMode == "Plné" ? full : lblMode == "Kompaktné" ? cmp : num
+        if lblEff != "Skryť"
+            string txt = lblEff == "Plné" ? full : lblEff == "Kompaktné" ? cmp : num
             array.push(gLb, label.new(tMid, yTop, txt, xloc = xloc.bar_time, style = d == 1 ? label.style_label_down : label.style_label_up, color = color.new(cS, dim ? 70 : 8), textcolor = dim ? color.new(f_txtOn(cS), 40) : f_txtOn(cS), size = LS, textalign = text.align_left, tooltip = tip))
 
     // ── 2) štatistiky (filter dátumu)
@@ -584,3 +609,9 @@ if barstate.islast
             table.cell(tD, 5, r, s == 2 ? "beží " + f_dur((nowT - array.get(T, i)) / 3600000.0) : f_dur(hr), text_color = TX, bgcolor = BG, text_size = TS)
             table.cell(tD, 6, r, "+" + f_px(math.abs(array.get(TP, i) - array.get(EN, i))) + " $", text_color = cZone, bgcolor = BG, text_size = TS)
             r += 1
+
+// ───────────────────────────── KONIEC ─────────────────────────────
+// Kód je vložený celý → zruš upozornenie "KÓD JE NEÚPLNÝ" zo začiatku súboru.
+if barstate.islast
+    table.cell(tWarn, 0, 0, "", bgcolor = color.new(color.black, 100))
+// KONIEC SÚBORU – GFX MS Trade Map v4
