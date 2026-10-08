@@ -1,6 +1,6 @@
 //@version=6
 // =====================================================================
-// GFX MS 2026 – TRADE MAP  (ponor • trvanie • TP • štatistiky)
+// GFX MS 2026 – TRADE MAP v2  (ponor • trvanie • TP • štatistiky)
 // Manuálne signály GFX Premier Club 29.12.2025 – 08.10.2026, XAUUSD
 //
 // INŠTALÁCIA (TradingView):
@@ -26,7 +26,8 @@
 // Dáta: gfx.db setup_metrics (MAE strict fill), otvorené signály podľa stavu 2026-10-07.
 // Časy postov sú UNIX ms (Europe/Bratislava), "✎" = čas postu bol upravený (edited).
 // =====================================================================
-indicator("GFX MS 2026 – Trade Map (ponor • trvanie • TP)", shorttitle = "GFX MS Trade Map", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("GFX MS 2026 – Trade Map v2 (ponor • trvanie • TP)", shorttitle = "GFX MS Trade Map v2", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+plot(close, "XAUUSD close", color = color.new(color.gray, 100), display = display.none, editable = false)
 
 // ───────────────────────────── VSTUPY ─────────────────────────────
 G_F = "① Filter"
@@ -331,7 +332,6 @@ var table tM = table.new(f_pos(posMain), 6, 15, bgcolor = BG, frame_color = BRD,
 var table tD = table.new(f_pos(posDet), 7, 45, bgcolor = BG, frame_color = BRD, frame_width = 1, border_color = BRD, border_width = 1)
 
 // ───────────────────────────── HLAVNÝ BEH ─────────────────────────────
-plot(na, "GFX MS", display = display.none)   // kompilátor vyžaduje aspoň jeden plot; kreslenie je vo funkciách
 var array<box>   sBx = array.new<box>()
 var array<line>  sLn = array.new<line>()
 var array<label> sLb = array.new<label>()
