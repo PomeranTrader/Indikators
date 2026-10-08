@@ -15,7 +15,7 @@
 //   Otvorené pozície   = počet pozícií otvorených naraz (histogram) + súčet lotov × 10 (čiara)
 // Tabuľka: max equity DD, najhorší plávajúci P/L, konečný zostatok, max súčasne otvorené.
 // =====================================================================
-indicator("SARUJA 21596244 – Equity & plávajúci P/L", shorttitle = "SARUJA Equity", overlay = false, format = format.price, precision = 0, max_labels_count = 50)
+indicator("SARUJA 21596244 – Equity & plávajúci P/L", shorttitle = "SARUJA Equity", overlay = false, format = format.price, precision = 1, max_labels_count = 50)
 
 G1 = "① Čas a režim"
 tzOff  = input.int(3, "UTC posun exportu (hodiny) – prevziať z Trade Map", minval = -12, maxval = 14, group = G1, tooltip = "Časy v exporte sú bez pásma. Trade Map ich kalibruje automaticky a výsledok ukáže v tabuľke (riadok Kalibrácia času). Sem zadaj rovnaké číslo.")
@@ -42,6 +42,9 @@ var array<float> PO = array.from(4415.27, 4371.03, 4385.01, 4327.13, 4327.55, 43
 var array<float> PC = array.from(4411.78, 4366.94, 4367.33, 4306.99, 4307.34, 4386.28, 4385.93, 4394.0, 4397.56, 4340.45, 4342.32, 4289.51, 4264.99, 4264.66, 4302.98, 4302.1, 4272.04, 4272.91, 4273.14, 4268.98, 4143.84, 4154.0, 4177.57, 4154.22, 4134.71, 4130.85, 4130.85, 4130.85, 4109.68, 4109.5, 4133.3)
 var array<float> PR = array.from(349.0, 81.8, 176.8, 201.4, 202.1, -185.2, 841.6, 465.9, 388.8, 469.8, 350.7, 1236.3, 161.4, 527.8, 1121.2, 1116.0, 600.0, 165.2, 156.0, 320.8, 911.2, -958.4, 189.0, 1320.6, 962.1, -295.5, 54.0, 653.0, -173.4, 230.4, 2.7)
 var array<int> BK = array.from(0, 1, 1, 2, 2, 3, 3, 0, 0, 0, 0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 5, 0, 6, 6, 6, 7, 7, 0)
+// BOT/BOA = čas a suma vkladov (+) a výberov (−), DEPOSIT = súčet vkladov (základ pre % zhodnotenia)
+var array<int> BOT = array.from(1787367094000)
+var array<float> BOA = array.from(10000.0)
 DEPOSIT = 10000.0
 OZ      = 100.0
 int N   = array.size(TK)
@@ -94,8 +97,12 @@ f_dt(int t) =>
     na(t) ? "—" : str.format_time(t, "dd.MM. HH:mm", tzDisp)
 
 // ───────────────────────────── VÝPOČET PO BAROCH ─────────────────────────────
-// pozícia je otvorená na bare, ak time ∈ [otvorenie, zatvorenie); zisk sa pripíše od prvého baru s time ≥ zatvorenie
-float bal   = DEPOSIT
+// pozícia pláva na každom bare, ktorého close je po otvorení a najneskôr pri zatvorení (close ∈ (otvorenie, zatvorenie]);
+// zisk sa pripíše na bare, ktorý obsahuje zatvorenie – rovnaká konvencia ako v Trade Map. Vklady/výbery od baru, ktorý ich obsahuje.
+float bal   = 0.0
+for [o, bt] in BOT
+    if time_close > bt + SH
+        bal += BOA.get(o)
 float flt   = 0.0       // plávajúci P/L pri close baru
 float fltH  = 0.0       // plávajúci P/L pri high baru
 float fltL  = 0.0       // plávajúci P/L pri low baru
@@ -104,9 +111,9 @@ float lOpen = 0.0
 for i = 0 to N - 1
     int t0 = TO.get(i) + SH
     int t1 = TC.get(i) + SH
-    if time >= t1
+    if time_close > t1
         bal += PR.get(i)
-    else if time >= t0
+    else if time_close > t0
         float m = D.get(i) * VO.get(i) * OZ
         float po = PO.get(i)
         flt  += (close - po) * m
@@ -117,7 +124,7 @@ for i = 0 to N - 1
 float fltW = math.min(fltH, fltL)          // najhorší intrabar prípad (všetky pozície na tom istom symbole)
 float eq   = bal + flt
 float eqW  = bal + fltW
-var float pk = DEPOSIT
+var float pk = 0.0
 pk := math.max(pk, eq)
 float dd   = pk - eq
 float ddW  = pk - eqW
@@ -188,9 +195,9 @@ if barstate.islast
         label.delete(lbDD)
         label.delete(lbFl)
         if not na(tMaxDD) and maxDD > 0
-            float yDD = m1 ? eqAtDD : m3 ? -maxDDp : m2 ? minFlt : na
+            float yDD = m1 ? eqAtDD : m3 ? -maxDDp : m2 ? 0.0 : na
             if not na(yDD)
-                lbDD := label.new(tMaxDD, yDD, "max equity DD " + f_usd(-maxDD) + " (" + str.tostring(maxDDp, "0.0") + " %)\n" + f_dt(tMaxDD), xloc = xloc.bar_time, style = label.style_label_up, color = color.new(cNeg, 15), textcolor = color.white, size = size.small)
+                lbDD := label.new(tMaxDD, yDD, "max equity DD " + f_usd(-maxDD) + " (" + str.tostring(maxDDp, "0.0") + " %)\n" + f_dt(tMaxDD), xloc = xloc.bar_time, style = m2 ? label.style_label_down : label.style_label_up, color = color.new(cNeg, 15), textcolor = color.white, size = size.small)
         if not na(tMinFlt) and minFlt < 0 and m2
             lbFl := label.new(tMinFlt, minFlt, "najhorší plávajúci P/L " + f_usd(minFlt) + "\n" + f_dt(tMinFlt), xloc = xloc.bar_time, style = label.style_label_up, color = color.new(cNeg, 15), textcolor = color.white, size = size.small)
     if showTb

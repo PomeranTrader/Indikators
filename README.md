@@ -31,7 +31,7 @@ Ponory nie sú v exporte – indikátor ich **dopočíta zo sviečok grafu** (hi
 **Jednotky:** `$` = pohyb ceny v USD za uncu, `USD` = peniaze na účte (ponor × lot × 100 oz).
 
 ### Farby podľa ponoru (prahy sa dajú meniť)
-`ČISTÝ ≤ 5 $` zelená · `MIERNY ≤ 15 $` limetková · `VÝRAZNÝ ≤ 30 $` oranžová · `HLBOKÝ ≤ 100 $` červená · `EXTRÉM > 100 $` fialová · `MIMO DÁT` sivá (graf nesiaha do obdobia obchodu – prepni na M5 / M15 alebo načítaj viac histórie).
+`ČISTÝ ≤ 5 $` zelená · `MIERNY ≤ 15 $` limetková · `VÝRAZNÝ ≤ 30 $` oranžová · `HLBOKÝ ≤ 100 $` červená · `EXTRÉM > 100 $` fialová · `MIMO DÁT` sivá (graf nesiaha do obdobia obchodu – prepni na M5 / M15 alebo načítaj viac histórie). Obchod, ktorý graf pokrýva len čiastočne (história začína po otvorení alebo končí pred zatvorením, napr. pri Bar Replay), dostane ponor z dostupných sviečok a označenie **⚠ čiastočné**.
 
 ### Tabuľky
 - **Prehľad účtu**: obchody, WR, čistý zisk a % vkladu, profit factor, Ø zisk / Ø strata, ponor (Ø, medián, max – v $/oz aj USD a % účtu), trvanie, zisk/ponor, využitie MFE, closed DD, najhorší plávajúci P/L, **equity DD** (zostatok + plávajúci P/L podľa sviečok), max súčasne otvorené pozície, koše, kalibrácia času a riadok **⚠ PROFIL** (jednosmernosť, priemerovanie, pomer strát a ziskov, držanie strát).
@@ -43,7 +43,7 @@ Ponory nie sú v exporte – indikátor ich **dopočíta zo sviečok grafu** (hi
 Časové pásmo (auto / ručne), pásmo zobrazenia, filter dátumu a výsledku (všetky / ziskové / stratové / koše), minimálny ponor, zvýraznenie hlbokých ponorov, všetky prvky kreslenia, krivka plávajúceho P/L účtu (pás pod cenou, štandardne vypnutá), režim štítkov (Plné / Kompaktné / Iba číslo / Skryť), prahy a farby, pozície a veľkosť tabuliek.
 
 ### Dáta a regenerácia
-`saruja-21596244-historia.xlsx` (export účtu) → `python3 tools/build_saruja.py saruja-21596244-historia.xlsx .` vyrobí `saruja-21596244-trades.csv` (tabuľka obchodov), `saruja-21596244-data.pine` (Pine polia – prekopíruj do sekcie DÁTA oboch skriptov) a `saruja-21596244-data.json` (štatistiky). Skript overí počet obchodov a súčet zisku voči hárku Súhrn a každý zisk voči (entry − exit) × lot × 100.
+`saruja-21596244-historia.xlsx` (export účtu) → `python3 tools/build_saruja.py saruja-21596244-historia.xlsx .` vyrobí `saruja-21596244-trades.csv` (tabuľka obchodov), `saruja-21596244-data.pine` (Pine polia – prekopíruj do sekcie DÁTA oboch skriptov) a `saruja-21596244-data.json` (štatistiky). Skript overí počet obchodov a súčet zisku voči hárku Súhrn a každý zisk voči (entry − exit) × lot × 100. Vklady a výbery (riadky BALANCE) idú do polí `BOT` / `BOA`, takže zostatok pred/po obchode, equity a DD ich zohľadňujú chronologicky; closed DD sa počíta iba z obchodného P/L.
 
 ---
 

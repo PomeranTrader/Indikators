@@ -98,14 +98,14 @@ def enrich(trades):
         t["profit_per_lot"] = round(t["profit"] / t["lot"], 2) if t["lot"] else None
         t["check_ok"] = abs(t["profit_calc"] + t["commission"] + t["swap"] - t["profit"]) < 0.05 * max(1, t["lot"]) + 0.01
     # koše: zoradené podľa času zatvorenia, medzera ≤ 60 s
-    by_close = sorted(trades, key=lambda t: t["close"])
-    bid, prev = 0, None
+    by_close = sorted(trades, key=lambda t: (t["close"], t["n"]))
+    bid, first = 0, None
     groups = defaultdict(list)
     for t in by_close:
-        if prev is None or (t["close"] - prev).total_seconds() > BASKET_GAP_S:
+        if first is None or (t["close"] - first).total_seconds() > BASKET_GAP_S:
             bid += 1
+            first = t["close"]
         groups[bid].append(t)
-        prev = t["close"]
     baskets = []
     k = 0
     for bid in sorted(groups):
@@ -160,21 +160,31 @@ def stats(trades, balance_ops, baskets):
     gross_p = sum(wins)
     gross_l = -sum(losses)
     net = sum(profits)
-    # krivka zostatku podľa zatvorenia (closed-trade DD)
-    bal = deposit
-    peak = bal
+    # krivka zostatku: vklady/výbery + obchody chronologicky; closed-trade DD iba z obchodného P/L
+    events = [(b["time"], 0, 0, "op", b) for b in balance_ops] + [(t["close"], 1, t["n"], "tr", t) for t in trades]
+    events.sort(key=lambda e: (e[0], e[1], e[2]))
+    bal = 0.0
+    cum_pl = 0.0
+    cum_peak = 0.0
+    bal_peak = 0.0
     max_dd = 0.0
     max_dd_pct = 0.0
-    curve = [{"t": min(b["time"] for b in balance_ops).strftime("%Y-%m-%d %H:%M:%S") if balance_ops else None, "bal": bal, "n": 0}]
+    curve = []
     dd_at = None
-    for t in sorted(trades, key=lambda t: (t["close"], t["ticket"])):
-        bal = round(bal + t["profit"], 2)
-        t["balance_after"] = bal
-        peak = max(peak, bal)
-        dd = peak - bal
+    for tm, _, _, kind, obj in events:
+        if kind == "op":
+            bal = round(bal + obj["amount"], 2)
+            curve.append({"t": tm.strftime("%Y-%m-%d %H:%M:%S"), "bal": bal, "n": 0, "op": obj["amount"]})
+            continue
+        bal = round(bal + obj["profit"], 2)
+        cum_pl = round(cum_pl + obj["profit"], 2)
+        obj["balance_after"] = bal
+        bal_peak = max(bal_peak, bal)
+        cum_peak = max(cum_peak, cum_pl)
+        dd = cum_peak - cum_pl
         if dd > max_dd:
-            max_dd, max_dd_pct, dd_at = dd, dd / peak * 100 if peak else 0, t["close"]
-        curve.append({"t": t["close"].strftime("%Y-%m-%d %H:%M:%S"), "bal": bal, "n": t["n"]})
+            max_dd, max_dd_pct, dd_at = dd, dd / bal_peak * 100 if bal_peak else 0, tm
+        curve.append({"t": tm.strftime("%Y-%m-%d %H:%M:%S"), "bal": bal, "n": obj["n"]})
     durs = [t["dur_h"] for t in trades]
     dur_w = [t["dur_h"] for t in trades if t["profit"] > 0]
     dur_l = [t["dur_h"] for t in trades if t["profit"] < 0]
@@ -208,7 +218,7 @@ def stats(trades, balance_ops, baskets):
         "largest_win": max(profits),
         "largest_loss": min(profits),
         "roi_pct": round(100 * net / deposit, 1) if deposit else None,
-        "final_balance": round(deposit + withdrawals + net, 2),
+        "final_balance": round(bal, 2),
         "max_closed_dd": round(max_dd, 2),
         "max_closed_dd_pct": round(max_dd_pct, 2),
         "max_closed_dd_at": dd_at.strftime("%Y-%m-%d %H:%M:%S") if dd_at else None,
@@ -277,7 +287,7 @@ def pine_arr(name, typ, vals):
     return f"var array<{typ}> {name} = array.from({', '.join(vals)})"
 
 
-def write_pine(trades, baskets, st, path):
+def write_pine(trades, baskets, st, ops, path):
     def f2(x):
         s = f"{x:.2f}".rstrip("0").rstrip(".")
         return s if "." in s else s + ".0"
@@ -295,6 +305,9 @@ def write_pine(trades, baskets, st, path):
         pine_arr("PC", "float", [f2(t["close_price"]) for t in trades]),
         pine_arr("PR", "float", [f2(t["profit"]) for t in trades]),
         pine_arr("BK", "int", [str(t["basket"]) for t in trades]),
+        "// BOT/BOA = čas a suma vkladov (+) a výberov (−), DEPOSIT = súčet vkladov (základ pre % zhodnotenia)",
+        pine_arr("BOT", "int", [str(ms(b["time"])) for b in ops]),
+        pine_arr("BOA", "float", [f2(b["amount"]) for b in ops]),
         f"DEPOSIT = {f2(st['deposit'])}",
     ]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -314,8 +327,9 @@ def main():
         assert exp_n == len(trades), f"počet obchodov {len(trades)} ≠ súhrn {exp_n}"
         assert abs(exp_p - st["net"]) < 0.01, f"súčet profitu {st['net']} ≠ súhrn {exp_p}"
     assert st["all_checks_ok"], "profit nesedí s (entry-exit)×lot×100 pri niektorom obchode"
+    assert balance_ops, "v exporte chýba riadok BALANCE (vklad)"
     write_csv(trades, out / "saruja-21596244-trades.csv")
-    write_pine(trades, baskets, st, out / "saruja-21596244-data.pine")
+    write_pine(trades, baskets, st, sorted(balance_ops, key=lambda b: b["time"]), out / "saruja-21596244-data.pine")
     _, _, _, _, expo = exposure(trades)
     data = {
         "account": {"number": "21596244", "name": "SARUJA", "platform": str(summary.get("Platforma", "MT4")),

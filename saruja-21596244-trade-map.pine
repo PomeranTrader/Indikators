@@ -113,6 +113,9 @@ var array<float> PO = array.from(4415.27, 4371.03, 4385.01, 4327.13, 4327.55, 43
 var array<float> PC = array.from(4411.78, 4366.94, 4367.33, 4306.99, 4307.34, 4386.28, 4385.93, 4394.0, 4397.56, 4340.45, 4342.32, 4289.51, 4264.99, 4264.66, 4302.98, 4302.1, 4272.04, 4272.91, 4273.14, 4268.98, 4143.84, 4154.0, 4177.57, 4154.22, 4134.71, 4130.85, 4130.85, 4130.85, 4109.68, 4109.5, 4133.3)
 var array<float> PR = array.from(349.0, 81.8, 176.8, 201.4, 202.1, -185.2, 841.6, 465.9, 388.8, 469.8, 350.7, 1236.3, 161.4, 527.8, 1121.2, 1116.0, 600.0, 165.2, 156.0, 320.8, 911.2, -958.4, 189.0, 1320.6, 962.1, -295.5, 54.0, 653.0, -173.4, 230.4, 2.7)
 var array<int> BK = array.from(0, 1, 1, 2, 2, 3, 3, 0, 0, 0, 0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 5, 0, 6, 6, 6, 7, 7, 0)
+// BOT/BOA = čas a suma vkladov (+) a výberov (−), DEPOSIT = súčet vkladov (základ pre % zhodnotenia)
+var array<int> BOT = array.from(1787367094000)
+var array<float> BOA = array.from(10000.0)
 DEPOSIT = 10000.0
 OZ      = 100.0          // XAUUSD: 1 lot = 100 oz
 int N   = array.size(TK)
@@ -250,10 +253,10 @@ if time >= W0 and time <= W1
     bL.push(low)
     bC.push(close)
 
-// index sviečky, do ktorej patrí čas t (-1 = pred prvou sviečkou grafu)
+// index sviečky, do ktorej patrí čas t (-1 = pred prvou alebo za poslednou sviečkou grafu)
 f_bar(int t) =>
     int r = -1
-    if bT.size() > 0 and t >= bT.first()
+    if bT.size() > 0 and t >= bT.first() and t < bT.last() + timeframe.in_seconds() * 1000
         r := array.binary_search_leftmost(bT, t)
     r
 
@@ -284,6 +287,7 @@ var array<int>   TMA = array.new<int>(N, na)       // čas sviečky max ponoru
 var array<int>   TMF = array.new<int>(N, na)       // čas sviečky MFE
 var array<int>   B0  = array.new<int>(N, -1)       // index sviečky otvorenia
 var array<int>   B1  = array.new<int>(N, -1)       // index sviečky zatvorenia
+var array<int>   PT  = array.new<int>(N, 0)        // 0 = celý obchod v dátach, 1 = graf začína po otvorení, 2 = graf končí pred zatvorením, 3 = oboje
 var array<float> BB  = array.new<float>(N, na)     // zostatok pred otvorením (uzavreté obchody)
 var array<float> BA  = array.new<float>(N, na)     // zostatok po zatvorení
 var int  SH     = 0          // posun času exportu → UTC (ms)
@@ -329,7 +333,7 @@ f_lbl(int i) =>
     int    k    = f_cls(ma)
     float  maU  = f_maeUsd(i)
     float  maP  = f_maePct(i)
-    float  cap  = na(mf) or mf < 0.01 ? na : 100.0 * mv / mf
+    float  cap  = na(mf) or mf < 0.01 ? na : 100.0 * math.max(mv, 0.0) / mf
     string num  = "#" + str.tostring(i + 1)
     string side = d == 1 ? "▲ BUY" : "▼ SELL"
     string res  = win ? "ZISK" : pr < 0 ? "STRATA" : "0"
@@ -340,6 +344,8 @@ f_lbl(int i) =>
     if hasM
         full += "\n▼ PONOR " + f_px(ma) + " $ · " + f_usd0(maU) + " · " + f_pct(maP) + " účtu · " + f_clsName(k)
         full += "\n⏱ " + f_dur(hr) + " · MFE " + f_px(mf) + " $ (využité " + (na(cap) ? "—" : str.tostring(cap, "0") + " %") + ") · zisk/ponor " + f_rr(mv, ma)
+        if PT.get(i) > 0
+            full += "\n⚠ čiastočné: graf nepokrýva celé trvanie obchodu"
     else
         full += "\n⏱ " + f_dur(hr) + " · ponor: mimo dát grafu (prepni na M5 / M15)"
     // kompaktný text
@@ -354,6 +360,8 @@ f_lbl(int i) =>
         tip += "\nMax ponor (MAE): " + f_px(ma) + " $" + f_pip(ma) + " = " + f_usd0(maU) + " = " + f_pct(maP) + " zostatku · " + f_clsName(k) + "\n   najhlbšie " + f_dt(TMA.get(i))
         tip += "\nNajlepší bod (MFE): " + f_px(mf) + " $ = " + f_usd0(mf * vol * OZ) + " · " + f_dt(TMF.get(i)) + "\n   využité " + (na(cap) ? "—" : str.tostring(cap, "0") + " %") + " z max. dostupného zisku"
         tip += "\nZisk / ponor: " + f_rr(mv, ma) + (ma > mv and mv > 0 ? "   ⚠ ponor väčší ako zisk" : "")
+        if PT.get(i) > 0
+            tip += "\n⚠ Čiastočné metriky – graf " + (PT.get(i) == 1 ? "začína až po otvorení" : PT.get(i) == 2 ? "končí pred zatvorením" : "nepokrýva začiatok ani koniec") + " obchodu (M5 / M15 alebo viac histórie)"
     else
         tip += "\nPonor a MFE sa nedajú dopočítať – graf nemá sviečky z tohto obdobia.\nPrepni na M5 / M15 alebo načítaj viac histórie."
     tip += "\nZostatok pred: " + f_usd0(BB.get(i)) + "  →  po: " + f_usd0(BA.get(i))
@@ -424,9 +432,21 @@ if barstate.islast
     SH     := -zUse * H
 
     // ── 1) metriky z grafu: sviečky obchodu, MAE, MFE
+    int tEndCh = nB > 0 ? bT.last() + timeframe.in_seconds() * 1000 : 0
     for i = 0 to N - 1
-        int   b0 = f_bar(f_t0(i))
-        int   b1 = f_bar(f_t1(i))
+        int  t0  = f_t0(i)
+        int  t1  = f_t1(i)
+        bool inW = nB > 0 and t1 >= bT.first() and t0 < tEndCh      // obchod sa aspoň čiastočne prekrýva s dátami grafu
+        int  b0  = -1
+        int  b1  = -1
+        int  pt  = 0
+        if inW
+            int r0 = f_bar(t0)
+            int r1 = f_bar(t1)
+            b0 := r0 < 0 ? 0 : r0
+            b1 := r1 < 0 ? nB - 1 : r1
+            pt := (t0 < bT.first() ? 1 : 0) + (t1 >= tEndCh ? 2 : 0)
+        PT.set(i, pt)
         B0.set(i, b0)
         B1.set(i, b1)
         if b0 >= 0 and b1 >= b0
@@ -455,8 +475,13 @@ if barstate.islast
 
     // ── 2) zostatok účtu pred / po každom obchode (iba uzavreté obchody, bez plávajúceho P/L)
     for i = 0 to N - 1
-        float bb = DEPOSIT
-        float ba = DEPOSIT
+        float bb = 0.0
+        float ba = 0.0
+        for [o, bt] in BOT
+            if bt < TO.get(i)
+                bb += BOA.get(o)
+            if bt <= TC.get(i)
+                ba += BOA.get(o)
         for j = 0 to N - 1
             if TC.get(j) < TO.get(i)
                 bb += PR.get(j)
@@ -471,25 +496,30 @@ if barstate.islast
     array<float> dB = array.new<float>(nBa + 1, 0.0)
     int   bA   = -1
     int   bZ   = -1
-    float bal0 = DEPOSIT
+    float bal0 = 0.0
     for i = 0 to N - 1
         int b0 = B0.get(i)
         int b1 = B1.get(i)
+        int pt = PT.get(i)
         if b0 >= 0 and b1 >= b0
             float po   = PO.get(i)
             float mult = D.get(i) * VO.get(i) * OZ
-            if b1 > b0
-                for b = b0 to b1 - 1
+            int   bE   = pt >= 2 ? b1 : b1 - 1          // ak graf končí pred zatvorením, pozícia pláva aj na poslednom bare
+            if bE >= b0
+                for b = b0 to bE
                     fl.set(b, fl.get(b) + (bC.get(b) - po) * mult)
-            dB.set(b1, dB.get(b1) + PR.get(i))
+            if pt < 2
+                dB.set(b1, dB.get(b1) + PR.get(i))
             bA := bA < 0 ? b0 : math.min(bA, b0)
             bZ := math.max(bZ, b1)
-        else if b1 >= 0
-            dB.set(b1, dB.get(b1) + PR.get(i))     // otvorený pred prvou sviečkou grafu, zatvorený v nej
-            bA := bA < 0 ? b1 : math.min(bA, b1)
-            bZ := math.max(bZ, b1)
-        else
+        else if nB > 0 and f_t1(i) < bT.first()
             bal0 += PR.get(i)                        // zatvorený pred prvou sviečkou grafu – zisk je už v zostatku
+    for [o, bt] in BOT
+        int bo = f_bar(bt + SH)
+        if bo >= 0
+            dB.set(bo, dB.get(bo) + BOA.get(o))
+        else if nB > 0 and bt + SH < bT.first()
+            bal0 += BOA.get(o)                       // vklad / výber pred prvou sviečkou grafu
     float bal    = bal0
     float eqPk   = bal0
     float flMin  = 0.0
@@ -584,7 +614,7 @@ if barstate.islast
         if showMaeMk and hasM and ma >= 0.5
             gLb.push(label.new(TMA.get(i), ddP, "", xloc = xloc.bar_time, style = d == 1 ? label.style_triangleup : label.style_triangledown, color = color.new(cD, dim ? 65 : 0), size = size.tiny, tooltip = num + " max ponor " + f_px(ma) + " $ = " + f_usd0(f_maeUsd(i)) + " · " + f_dt(TMA.get(i))))
         if showMfeMk and hasM and mf >= 0.5
-            gLb.push(label.new(TMF.get(i), mfP, "", xloc = xloc.bar_time, style = d == 1 ? label.style_triangledown : label.style_triangleup, color = color.new(cWin, dim ? 65 : 0), size = size.tiny, tooltip = num + " najlepší bod (MFE) " + f_px(mf) + " $ = " + f_usd0(mf * VO.get(i) * OZ) + " · " + f_dt(TMF.get(i)) + "\nvyužité " + (mf < 0.01 ? "—" : str.tostring(100.0 * f_move(i) / mf, "0") + " %")))
+            gLb.push(label.new(TMF.get(i), mfP, "", xloc = xloc.bar_time, style = d == 1 ? label.style_triangledown : label.style_triangleup, color = color.new(cWin, dim ? 65 : 0), size = size.tiny, tooltip = num + " najlepší bod (MFE) " + f_px(mf) + " $ = " + f_usd0(mf * VO.get(i) * OZ) + " · " + f_dt(TMF.get(i)) + "\nvyužité " + (mf < 0.01 ? "—" : str.tostring(100.0 * math.max(f_move(i), 0.0) / mf, "0") + " %")))
         if showDepth and hasM and ma >= depthMin
             gLb.push(label.new(tMid, ddP, "▼ " + str.tostring(ma, "0.0") + " $ · " + f_usd0(f_maeUsd(i)), xloc = xloc.bar_time, style = d == 1 ? label.style_label_up : label.style_label_down, color = color.new(cD, dim ? 65 : 10), textcolor = f_txtOn(cD), size = size.tiny, tooltip = tip))
         if lblMode != "Skryť"
@@ -608,6 +638,8 @@ if barstate.islast
             int   bb0   = -1
             int   bb1   = -1
             bool  vis   = false
+            bool  bkDat = true
+            bool  bkPart = false
             string mem  = ""
             for i = 0 to N - 1
                 if BK.get(i) != k
@@ -626,6 +658,10 @@ if barstate.islast
                 if B0.get(i) >= 0 and B1.get(i) >= B0.get(i)
                     bb0 := bb0 < 0 ? B0.get(i) : math.min(bb0, B0.get(i))
                     bb1 := math.max(bb1, B1.get(i))
+                    if PT.get(i) > 0
+                        bkPart := true
+                else
+                    bkDat := false
                 mem  += (mem == "" ? "" : "\n") + "#" + str.tostring(i + 1) + "  " + f_lotTxt(VO.get(i)) + " @ " + f_px(PO.get(i)) + "  " + f_dt(f_t0(i)) + "  " + f_usd(PR.get(i))
             if cnt < 2 or not vis
                 continue
@@ -633,7 +669,7 @@ if barstate.islast
             // spoločný plávajúci P/L koša po sviečkach → spoločný max ponor
             float bkMin = 0.0
             int   tBkMin = na
-            if bb0 >= 0 and bb1 >= bb0
+            if bkDat and bb0 >= 0 and bb1 >= bb0
                 array<float> bf = array.new<float>(bb1 - bb0 + 1, 0.0)
                 for i = 0 to N - 1
                     if BK.get(i) != k or B0.get(i) < 0 or B1.get(i) < B0.get(i)
@@ -646,8 +682,11 @@ if barstate.islast
                     if bf.get(j) < bkMin
                         bkMin  := bf.get(j)
                         tBkMin := bT.get(bb0 + j)
-            string bkTxt = "KÔŠ " + str.tostring(k) + " · " + str.tostring(cnt) + " poz · " + f_lotTxt(bkLots) + " · Ø entry " + f_px(avgEn) + " · net " + f_usd(bkNet) + (na(tBkMin) ? "" : " · spoločný ponor " + f_usd0(bkMin))
-            string bkTip = "KÔŠ " + str.tostring(k) + " – pozície zatvorené naraz " + f_dtf(bTc) + "\n" + mem + "\n────────────\nSpolu " + f_lotTxt(bkLots) + " · vážený Ø entry " + f_px(avgEn) + " · net " + f_usd(bkNet) + (na(tBkMin) ? "\nSpoločný ponor: mimo dát grafu" : "\nSpoločný plávajúci P/L najhoršie " + f_usd0(bkMin) + " (" + f_dt(tBkMin) + ")") + "\nTrvanie koša: " + f_dur((bTc - bTo) / 3600000.0)
+                if na(tBkMin)
+                    tBkMin := bT.get(bb0)                 // kôš nikdy nebol v mínuse → 0 USD
+            string bkDD  = not bkDat ? "mimo dát grafu (časť pozícií)" : na(tBkMin) ? "—" : f_usd0(-bkMin) + (bkPart ? " (čiastočné)" : "")
+            string bkTxt = "KÔŠ " + str.tostring(k) + " · " + str.tostring(cnt) + " poz · " + f_lotTxt(bkLots) + " · Ø entry " + f_px(avgEn) + " · net " + f_usd(bkNet) + " · spoločný ponor " + bkDD
+            string bkTip = "KÔŠ " + str.tostring(k) + " – pozície zatvorené naraz " + f_dtf(bTc) + "\n" + mem + "\n────────────\nSpolu " + f_lotTxt(bkLots) + " · vážený Ø entry " + f_px(avgEn) + " · net " + f_usd(bkNet) + "\nSpoločný ponor (najhorší súčet plávajúceho P/L koša): " + bkDD + (bkDat and not na(tBkMin) ? " · " + f_dt(tBkMin) : "") + "\nTrvanie koša: " + f_dur((bTc - bTo) / 3600000.0)
             gLn.push(line.new(bTc, pLo, bTc, pHi, xloc = xloc.bar_time, color = color.new(cBask, 20), style = line.style_dashed, width = 1))
             gLn.push(line.new(bTo, avgEn, bTc, avgEn, xloc = xloc.bar_time, color = color.new(cBask, 35), style = line.style_dashed, width = 1))
             gLb.push(label.new(bTc, pHi, bkTxt, xloc = xloc.bar_time, style = label.style_label_lower_left, color = color.new(cBask, 10), textcolor = f_txtOn(cBask), size = size.tiny, textalign = text.align_left, tooltip = bkTip))
@@ -720,8 +759,13 @@ if barstate.islast
     array<float> wSH = array.new<float>()
     array<int>   tI  = array.new<int>()
     array<float> tV  = array.new<float>()
+    array<int>   bkIds = array.new<int>()
+    int   nPt   = 0
     // closed-trade DD v poradí zatvorenia (všetky obchody, celý účet)
-    array<int> ordC = array.sort_indices(TC, order.ascending)
+    array<int> tcKey = array.new<int>()
+    for j = 0 to N - 1
+        tcKey.push(TC.get(j) + j)                 // pri rovnakom čase zatvorenia rozhoduje poradie riadkov
+    array<int> ordC = array.sort_indices(tcKey, order.ascending)
     for j in ordC
         cdBal += PR.get(j)
         cdPk := math.max(cdPk, cdBal)
@@ -746,6 +790,8 @@ if barstate.islast
             nSell += 1
         if BK.get(i) > 0
             nInBk += 1
+            if array.indexof(bkIds, BK.get(i)) < 0
+                bkIds.push(BK.get(i))
         if pr > 0
             nWin += 1
             gP += pr
@@ -782,6 +828,8 @@ if barstate.islast
         wSH.set(wi, wSH.get(wi) + hr)
         if not na(ma)
             nM += 1
+            if PT.get(i) > 0
+                nPt += 1
             float mu = f_maeUsd(i)
             float mp = f_maePct(i)
             aMA.push(ma)
@@ -841,7 +889,7 @@ if barstate.islast
         if nSell == nAll or nSell == 0
             risk += (nSell == nAll ? "100 % SELL" : "100 % BUY") + " (jednosmerná)"
         if nInBk > 0
-            risk += (risk == "" ? "" : " · ") + "priemerovanie v košoch " + str.tostring(nInBk) + "/" + str.tostring(nAll) + " obch., max " + str.tostring(maxN) + " pozície / " + f_lotTxt(maxL)
+            risk += (risk == "" ? "" : " · ") + "priemerovanie v košoch " + str.tostring(nInBk) + "/" + str.tostring(nAll) + " obch., max " + str.tostring(maxN) + " pozície naraz / " + f_lotTxt(maxL) + " (účet)"
         if not na(lwR)
             risk += (risk == "" ? "" : " · ") + "WR " + str.tostring(wr, "0") + " %, Ø strata = " + str.tostring(lwR, "0.00") + "× Ø zisk"
         if not na(avgHW) and not na(avgHL) and avgHW > 0
@@ -902,10 +950,10 @@ if barstate.islast
         table.cell(tM, 3, 8, bA < 0 ? "—" : f_usd0(flMin) + (na(tFlMin) ? "" : " · " + f_dt(tFlMin)), text_color = flMin < 0 ? cLoss : TX, bgcolor = BG, text_size = TS)
         table.cell(tM, 4, 8, "Equity DD (účet)", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Najväčší pokles equity (zostatok + plávajúci P/L) oproti vrcholu equity – skutočné riziko účtu")
         table.cell(tM, 5, 8, bA < 0 ? "—" : f_usd0(eqDD) + " (" + f_pct(eqDDp) + ")" + (na(tEqDD) ? "" : " · " + f_dt(tEqDD)), text_color = TX, bgcolor = eqDD > cdDD ? color.new(c3, 55) : BG, text_size = TS)
-        table.cell(tM, 0, 9, "Max súčasne", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Najviac pozícií otvorených naraz (z dát) a najväčší súčet lotov naraz")
+        table.cell(tM, 0, 9, "Max súčasne (účet)", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Najviac pozícií otvorených naraz (z dát) a najväčší súčet lotov naraz")
         table.cell(tM, 1, 9, str.tostring(maxN) + " poz · " + f_lotTxt(maxL) + (na(tMaxN) ? "" : " · " + f_dt(tMaxN)), text_color = TX, bgcolor = maxN >= 3 ? color.new(c2, 60) : BG, text_size = TS)
-        table.cell(tM, 2, 9, "Koše", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Pozície zatvorené naraz (do 60 s) = priemerovanie")
-        table.cell(tM, 3, 9, str.tostring(nBk) + " (" + str.tostring(nInBk) + " obch.)", text_color = TX, bgcolor = BG, text_size = TS)
+        table.cell(tM, 2, 9, "Koše", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = "Pozície zatvorené naraz (do 60 s) = priemerovanie; počet košov a obchodov v nich vo filtri")
+        table.cell(tM, 3, 9, str.tostring(bkIds.size()) + " (" + str.tostring(nInBk) + " obch.)", text_color = TX, bgcolor = BG, text_size = TS)
         table.cell(tM, 4, 9, "Kalibrácia času", text_color = MUT, bgcolor = HD, text_size = TS, text_halign = text.align_left, tooltip = calTip)
         table.cell(tM, 5, 9, calT, text_color = f_txtOn(calC), bgcolor = color.new(calC, 25), text_size = TS, tooltip = calTip)
         table.cell(tM, 0, 10, risk == "" ? "" : "⚠ PROFIL: " + risk, text_color = c2, bgcolor = BG, text_size = TS, text_halign = text.align_left, tooltip = riskTip)
@@ -930,8 +978,8 @@ if barstate.islast
         table.cell(tM, 0, 18, "MIMO DÁT", text_color = f_txtOn(cNoD), bgcolor = cNoD, text_size = TS)
         table.cell(tM, 1, 18, "bez sviečok", text_color = MUT, bgcolor = BG, text_size = TS)
         table.cell(tM, 2, 18, str.tostring(nAll - nM), text_color = TX, bgcolor = BG, text_size = TS)
-        table.cell(tM, 3, 18, "", text_color = TX, bgcolor = BG, text_size = TS)
-        table.cell(tM, 4, 18, nAll - nM > 0 ? "graf nesiaha do obdobia obchodu → M5 / M15" : "", text_color = MUT, bgcolor = BG, text_size = TS, text_halign = text.align_left)
+        table.cell(tM, 3, 18, nPt > 0 ? "čiast. " + str.tostring(nPt) : "", text_color = MUT, bgcolor = BG, text_size = TS, tooltip = "Čiastočné = graf nepokrýva celé trvanie obchodu, ponor je spočítaný len z dostupných sviečok")
+        table.cell(tM, 4, 18, nAll - nM > 0 or nPt > 0 ? "graf nesiaha do celého obdobia → M5 / M15, viac histórie" : "", text_color = MUT, bgcolor = BG, text_size = TS, text_halign = text.align_left)
         table.cell(tM, 5, 18, "", text_color = TX, bgcolor = BG, text_size = TS)
         table.cell(tM, 0, 19, "Ponor ($/oz) = high/low sviečok tohto grafu medzi otvorením a zatvorením · 1 lot = 100 oz · časy " + tzDisp, text_color = MUT, bgcolor = BG, text_size = size.tiny, text_halign = text.align_left)
 
