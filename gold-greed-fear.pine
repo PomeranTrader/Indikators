@@ -1,3 +1,4 @@
+//@version=6
 // This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Pomeranian trader
 //
@@ -5,10 +6,18 @@
 //   · linked-market factor panel (DXY, US yields, EURUSD, USDJPY, silver, SPX, VIX …) with sparkline mini charts
 //   · 30-day volatility statistics from closed daily bars (no repaint)
 //   · Asia / London / New York session range statistics and next-session projection drawn on the price chart
+//
+// INŠTALÁCIA: vlož CELÝ súbor (cca 670 riadkov, posledný riadok je "// KONIEC SÚBORU – Gold G/F PRO v3").
+// Ak sa vloží iba časť, kompilátor hlási CE10246 alebo sa na grafe zobrazí červené "KÓD JE NEÚPLNÝ".
+// Kopíruj z GitHubu cez tlačidlo "Raw", nie z náhľadu v chate (ten sa orezáva pri ~16 000 znakoch).
 
-//@version=6
-indicator("Gold Greed vs Fear PRO [Pomeranian]", "Gold G/F PRO", overlay = false, precision = 1,
-     max_lines_count = 100, max_labels_count = 50, max_boxes_count = 50)
+indicator("Gold Greed vs Fear PRO [Pomeranian]", "Gold G/F PRO", overlay = false, precision = 1, max_lines_count = 100, max_labels_count = 50, max_boxes_count = 50)
+
+// Kontrola úplnosti: upozornenie sa nastaví tu a vymaže až na úplnom konci súboru.
+plot(na, "", display = display.none, editable = false)
+var table tWarn = table.new(position.middle_center, 1, 1)
+if barstate.islast
+    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód z GitHubu (Raw), posledný riadok je\n\"// KONIEC SÚBORU – Gold G/F PRO v3\" a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
 
 //-----------------------------------------------------------------------------}
 //Settings
@@ -647,3 +656,10 @@ if showD2 and barstate.islast
     f_vrow(17, "Pozn.", "štatistika, nie predpoveď", "pri FOMC / NFP / CPI rátaj s p90 až max", txtDim)
 
 //-----------------------------------------------------------------------------}
+
+//-----------------------------------------------------------------------------}
+//End of file: the code was pasted completely, clear the "KÓD JE NEÚPLNÝ" warning
+//-----------------------------------------------------------------------------{
+if barstate.islast
+    table.cell(tWarn, 0, 0, "", bgcolor = color.new(color.black, 100))
+// KONIEC SÚBORU – Gold G/F PRO v3

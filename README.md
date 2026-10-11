@@ -42,8 +42,9 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**. Zložený oscilátor 0�
 
 ### Inštalácia
 1. Otvor graf **XAUUSD** (odporúčané M15 – H1 pre seansy, D1 pre makro pohľad) a dole klikni na **Pine Editor**.
-2. Zmaž obsah editora a vlož celý súbor `gold-greed-fear.pine`.
-3. Klikni na **Uložiť** a potom na **Pridať do grafu**. Oscilátor sa otvorí v paneli pod cenou, projekcie seáns sa kreslia priamo na cenový graf.
+2. Otvor `gold-greed-fear.pine` na GitHube, klikni na **Raw**, Ctrl+A, Ctrl+C. Kód má cca 670 riadkov a posledný riadok je `// KONIEC SÚBORU – Gold G/F PRO v3`. Nekopíruj z náhľadu v chate, ten sa orezáva.
+3. Zmaž obsah editora, vlož kód, klikni na **Uložiť** a potom na **Pridať do grafu**. Oscilátor sa otvorí v paneli pod cenou, projekcie seáns sa kreslia priamo na cenový graf.
+4. Ak sa vložila len časť, kompilátor hlási CE10246 alebo graf ukáže červené „KÓD JE NEÚPLNÝ". Vlož celý súbor znova.
 
 ### Zóny skóre
 | Rozsah | Zóna | Farba |
