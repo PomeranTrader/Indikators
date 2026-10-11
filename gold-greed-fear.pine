@@ -1,9 +1,12 @@
 // This Pine Script® code is subject to the terms of the Mozilla Public License 2.0
-// Gold Greed vs Fear (XAUUSD) — composite 0–100 sentiment oscillator
-// Author: Pomeranian trader · built with Grok Bot · 2026-10-11
+// Gold Greed vs Fear PRO (XAUUSD) — composite 0–100 sentiment oscillator
+//   + linked-market factor panel (DXY, US yields, EURUSD, USDJPY, silver, SPX, VIX …) with mini charts
+//   + 30-day volatility statistics and session range projection (Asia / London / New York)
+// Author: Pomeranian trader · 2026-10-11 · v2
 //@version=6
-indicator("Gold Greed vs Fear (XAUUSD) · Pomeranian", shorttitle = "Gold G/F", overlay = false, precision = 1, max_labels_count = 50)
+indicator("Gold Greed vs Fear PRO (XAUUSD) · Pomeranian", shorttitle = "Gold G/F PRO", overlay = false, precision = 1, max_lines_count = 100, max_labels_count = 50)
 
+// ───────────────────────────── 1) Core
 grpCore   = "1) Core components"
 rsiLen    = input.int(14,  "RSI length",                       minval = 2,  group = grpCore)
 fastLen   = input.int(50,  "Fast SMA length",                  minval = 5,  group = grpCore)
@@ -12,6 +15,7 @@ atrLen    = input.int(14,  "ATR length",                       minval = 2,  grou
 atrAvgLen = input.int(100, "ATR average length (vol regime)",  minval = 10, group = grpCore)
 trendLen  = input.int(20,  "Direction EMA length (vol sign)",  minval = 2,  group = grpCore)
 
+// ───────────────────────────── 2) Normalization
 grpNorm     = "2) Normalization"
 normMode    = input.string("Adaptive (z-score)", "Distance normalization", options = ["Adaptive (z-score)", "Fixed %"], group = grpNorm)
 normLen     = input.int(250,    "Z-score lookback (bars)",                         minval = 20,   group = grpNorm)
@@ -22,36 +26,103 @@ volCap      = input.float(1.8,  "ATR ratio where vol score saturates",          
 volUpFactor = input.float(0.6,  "High vol in uptrend → greed factor (0–1)",        minval = 0.0,  maxval = 1.0, step = 0.05, group = grpNorm)
 calmPts     = input.float(10.0, "Low vol → max drift points toward trend",         minval = 0.0,  maxval = 50.0, group = grpNorm)
 
-grpMacro = "3) Macro (optional, inverse to gold)"
-useDxy   = input.bool(false, "Use DXY",   inline = "dxy", group = grpMacro)
-dxySym   = input.symbol("TVC:DXY",   "",  inline = "dxy", group = grpMacro)
-useYld   = input.bool(false, "Use US10Y", inline = "yld", group = grpMacro)
-yldSym   = input.symbol("TVC:US10Y", "",  inline = "yld", group = grpMacro)
-macroLen = input.int(20, "Macro change lookback (bars)", minval = 2, group = grpMacro)
-useCorr  = input.bool(true, "Scale macro weight by live inverse correlation", group = grpMacro)
-corrLen  = input.int(60, "Correlation length (bars)", minval = 10, group = grpMacro)
+// ───────────────────────────── 3) Factor instruments
+grpF     = "3) Factor instruments (linked markets)"
+macroLen = input.int(20,   "Change lookback (bars)",                         minval = 1,  group = grpF)
+useCorr  = input.bool(true, "Scale weight by live correlation with gold",     group = grpF)
+corrLen  = input.int(60,   "Correlation length (bars)",                      minval = 10, group = grpF)
+sparkLen = input.int(24,   "Mini chart length (bars)",                       minval = 5,  maxval = 60, group = grpF)
 
+f1On = input.bool(true,  "",  inline = "f1", group = grpF)
+f1Sym = input.symbol("TVC:DXY", "", inline = "f1", group = grpF)
+f1Sign = input.string("Inverse", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f1", group = grpF)
+f1W = input.float(10.0, "w", minval = 0.0, inline = "f1", group = grpF)
+f1Unit = input.string("%", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f1", group = grpF)
+
+f2On = input.bool(true,  "",  inline = "f2", group = grpF)
+f2Sym = input.symbol("TVC:US10Y", "", inline = "f2", group = grpF)
+f2Sign = input.string("Inverse", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f2", group = grpF)
+f2W = input.float(10.0, "w", minval = 0.0, inline = "f2", group = grpF)
+f2Unit = input.string("bp", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f2", group = grpF)
+
+f3On = input.bool(true,  "",  inline = "f3", group = grpF)
+f3Sym = input.symbol("TVC:US02Y", "", inline = "f3", group = grpF)
+f3Sign = input.string("Inverse", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f3", group = grpF)
+f3W = input.float(5.0, "w", minval = 0.0, inline = "f3", group = grpF)
+f3Unit = input.string("bp", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f3", group = grpF)
+
+f4On = input.bool(true,  "",  inline = "f4", group = grpF)
+f4Sym = input.symbol("FX:EURUSD", "", inline = "f4", group = grpF)
+f4Sign = input.string("Direct", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f4", group = grpF)
+f4W = input.float(5.0, "w", minval = 0.0, inline = "f4", group = grpF)
+f4Unit = input.string("pips 0.0001", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f4", group = grpF)
+
+f5On = input.bool(true,  "",  inline = "f5", group = grpF)
+f5Sym = input.symbol("FX:USDJPY", "", inline = "f5", group = grpF)
+f5Sign = input.string("Inverse", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f5", group = grpF)
+f5W = input.float(5.0, "w", minval = 0.0, inline = "f5", group = grpF)
+f5Unit = input.string("pips 0.01", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f5", group = grpF)
+
+f6On = input.bool(true,  "",  inline = "f6", group = grpF)
+f6Sym = input.symbol("OANDA:XAGUSD", "", inline = "f6", group = grpF)
+f6Sign = input.string("Direct", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f6", group = grpF)
+f6W = input.float(5.0, "w", minval = 0.0, inline = "f6", group = grpF)
+f6Unit = input.string("%", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f6", group = grpF)
+
+f7On = input.bool(false, "",  inline = "f7", group = grpF)
+f7Sym = input.symbol("SP:SPX", "", inline = "f7", group = grpF)
+f7Sign = input.string("Auto (by corr)", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f7", group = grpF)
+f7W = input.float(5.0, "w", minval = 0.0, inline = "f7", group = grpF)
+f7Unit = input.string("%", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f7", group = grpF)
+
+f8On = input.bool(false, "",  inline = "f8", group = grpF)
+f8Sym = input.symbol("TVC:VIX", "", inline = "f8", group = grpF)
+f8Sign = input.string("Direct", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f8", group = grpF)
+f8W = input.float(5.0, "w", minval = 0.0, inline = "f8", group = grpF)
+f8Unit = input.string("pts", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f8", group = grpF)
+
+// ───────────────────────────── 4) Sentiment
 grpSent          = "4) Sentiment (optional)"
 sentMode         = input.string("Off", "Sentiment mode", options = ["Off", "Blend crowd long %", "Override final score"], group = grpSent)
 sentimentLongPct = input.float(-1.0, "sentimentLongPct / manual 0–100 (-1 = na)", minval = -1.0, maxval = 100.0, step = 1.0, group = grpSent,
      tooltip = "Paste crowd long % (e.g. Myfxbook XAUUSD long %) for blend mode, or any 0–100 value for override mode. -1 = not set (na).")
 
-grpW  = "5) Weights"
+// ───────────────────────────── 5) Core weights
+grpW  = "5) Core weights (factor weights are in section 3)"
 wRsi  = input.float(30.0, "RSI",            minval = 0.0, group = grpW)
 wFast = input.float(15.0, "Dist fast SMA",  minval = 0.0, group = grpW)
 wSlow = input.float(15.0, "Dist slow SMA",  minval = 0.0, group = grpW)
 wVol  = input.float(15.0, "ATR regime",     minval = 0.0, group = grpW)
-wDxy  = input.float(10.0, "DXY",            minval = 0.0, group = grpW)
-wYld  = input.float(10.0, "US10Y",          minval = 0.0, group = grpW)
 wSent = input.float(15.0, "Sentiment",      minval = 0.0, group = grpW)
 
-grpVis    = "6) Visuals"
+// ───────────────────────────── 6) Volatility & sessions
+grpVol   = "6) Volatility & sessions"
+statDays = input.int(30,   "Statistics window (days / sessions)", minval = 5, maxval = 120, group = grpVol)
+volAdj   = input.bool(true, "Scale expected range by current vol (ATR short / ATR window)", group = grpVol)
+asiaOn   = input.bool(true, "Asia",     inline = "sA", group = grpVol)
+asiaSess = input.session("0900-1500", "", inline = "sA", group = grpVol)
+asiaTz   = input.string("Asia/Tokyo", "", inline = "sA", group = grpVol)
+lonOn    = input.bool(true, "London",   inline = "sL", group = grpVol)
+lonSess  = input.session("0800-1630", "", inline = "sL", group = grpVol)
+lonTz    = input.string("Europe/London", "", inline = "sL", group = grpVol)
+nyOn     = input.bool(true, "New York", inline = "sN", group = grpVol)
+nySess   = input.session("0830-1700", "", inline = "sN", group = grpVol)
+nyTz     = input.string("America/New_York", "", inline = "sN", group = grpVol)
+drawProj = input.bool(true, "Draw session projection on price chart", group = grpVol)
+keepSess = input.int(3, "Keep projections for last N sessions", minval = 1, maxval = 6, group = grpVol)
+
+// ───────────────────────────── 7) Visuals
+grpVis    = "7) Visuals"
 smoothLen = input.int(3, "Final EMA smoothing (1 = off)", minval = 1, group = grpVis)
 showBg    = input.bool(true, "Background tint in extreme zones", group = grpVis)
 showShape = input.bool(true, "Shapes on 25 / 75 crosses",        group = grpVis)
-showTable = input.bool(true, "Show components table",            group = grpVis)
-tablePos  = input.string("Top right", "Table position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = grpVis)
+showT1    = input.bool(true, "Show components + factors table",  inline = "t1", group = grpVis)
+pos1      = input.string("Top right", "", options = ["Top right", "Bottom right", "Top left", "Bottom left", "Middle right", "Middle left"], inline = "t1", group = grpVis)
+showT2    = input.bool(true, "Show volatility + sessions table",  inline = "t2", group = grpVis)
+pos2      = input.string("Top left", "", options = ["Top right", "Bottom right", "Top left", "Bottom left", "Middle right", "Middle left"], inline = "t2", group = grpVis)
+tszIn     = input.string("Small", "Table text size", options = ["Tiny", "Small", "Normal"], group = grpVis)
 
+// ───────────────────────────── helpers
 f_clamp(float x, float lo, float hi) =>
     math.max(lo, math.min(hi, x))
 
@@ -72,14 +143,48 @@ f_zoneName(float x) =>
 f_fmt(float x, string f) =>
     na(x) ? "–" : str.tostring(x, f)
 
+f_sgnf(float x, string f) =>
+    na(x) ? "–" : (x >= 0 ? "+" : "") + str.tostring(x, f)
+
 f_sgn(float x) =>
-    na(x) ? "–" : (x >= 0 ? "+" : "") + str.tostring(x, "0.00")
+    f_sgnf(x, "0.00")
 
 f_num(float s, float w) =>
     na(s) or na(w) or w <= 0 ? 0.0 : s * w
 f_den(float s, float w) =>
     na(s) or na(w) or w <= 0 ? 0.0 : w
 
+f_name(string sym) =>
+    array<string> parts = str.split(sym, ":")
+    array.size(parts) > 1 ? array.get(parts, 1) : sym
+
+f_unitMult(string u) =>
+    u == "pips 0.0001" ? 10000.0 : u == "pips 0.01" ? 100.0 : u == "bp" ? 100.0 : 1.0
+
+f_unitLbl(string u) =>
+    u == "%" ? " %" : u == "bp" ? " bp" : u == "pts" ? " pt" : " pip"
+
+var array<string> blocks = array.from("▁", "▂", "▃", "▄", "▅", "▆", "▇", "█")
+
+f_spark(float src, int n) =>
+    float lo = na
+    float hi = na
+    for i = 0 to n - 1
+        float v = src[i]
+        if not na(v)
+            lo := na(lo) ? v : math.min(lo, v)
+            hi := na(hi) ? v : math.max(hi, v)
+    string out = ""
+    for i = 0 to n - 1
+        float v = src[i]
+        string ch = "·"
+        if not na(v)
+            int idx = hi > lo ? int(math.round((v - lo) / (hi - lo) * 7.0)) : 3
+            ch := array.get(blocks, idx)
+        out := ch + out
+    out
+
+// ───────────────────────────── core components
 rsiVal = ta.rsi(close, rsiLen)
 sRsi   = rsiVal
 
@@ -103,43 +208,223 @@ sVol = na(volExcess) ? na :
      volExcess >= 0 ? (upTrend ? 50.0 + 50.0 * volExcess * volUpFactor : 50.0 - 50.0 * volExcess) :
      50.0 + calmPts * (-volExcess) * (upTrend ? 1.0 : -1.0)
 
-dxyClose = request.security(dxySym, timeframe.period, close, lookahead = barmerge.lookahead_off)
-yldClose = request.security(yldSym, timeframe.period, close, lookahead = barmerge.lookahead_off)
-
-dxyChg = ta.roc(dxyClose, macroLen)
-yldChg = ta.change(yldClose, macroLen)
-zDxy   = f_z(dxyChg, normLen)
-zYld   = f_z(yldChg, normLen)
-
 goldRet = ta.roc(close, 1)
-corrDxy = ta.correlation(goldRet, ta.roc(dxyClose, 1), corrLen)
-corrYld = ta.correlation(goldRet, ta.change(yldClose), corrLen)
 
-sDxy = useDxy ? (na(zDxy) ? na : 100.0 - f_zScore(zDxy)) : na
-sYld = useYld ? (na(zYld) ? na : 100.0 - f_zScore(zYld)) : na
+// ───────────────────────────── factor engine
+f_factor(bool on, simple string sym, string signMode, float w, string unit) =>
+    float px   = request.security(sym, timeframe.period, close, lookahead = barmerge.lookahead_off)
+    [dO, dC]   = request.security(sym, "D", [open, close], lookahead = barmerge.lookahead_off)
+    float pct  = ta.roc(px, macroLen)
+    float dif  = ta.change(px, macroLen)
+    float dPct = (dC - dO) / dO * 100.0
+    float r    = ta.correlation(goldRet, ta.roc(px, 1), corrLen)
+    float meas = unit == "bp" ? dif : pct
+    float z    = f_z(meas, normLen)
+    float e    = signMode == "Direct" ? 1.0 : signMode == "Inverse" ? -1.0 : (nz(r) >= 0 ? 1.0 : -1.0)
+    float sc   = na(z) ? na : (e > 0 ? f_zScore(z) : 100.0 - f_zScore(z))
+    float al   = signMode == "Auto (by corr)" ? math.abs(nz(r)) : math.max(0.0, e * nz(r))
+    float wE   = useCorr ? w * al : w
+    string sp  = f_spark(px, sparkLen)
+    [px, pct, dif, dPct, r, on ? sc : na, on ? wE : 0.0, e, sp]
 
-wDxyEff = useCorr ? wDxy * math.max(0.0, -nz(corrDxy)) : wDxy
-wYldEff = useCorr ? wYld * math.max(0.0, -nz(corrYld)) : wYld
+[px1, pct1, dif1, day1, r1, s1, w1, e1, sp1] = f_factor(f1On, f1Sym, f1Sign, f1W, f1Unit)
+[px2, pct2, dif2, day2, r2, s2, w2, e2, sp2] = f_factor(f2On, f2Sym, f2Sign, f2W, f2Unit)
+[px3, pct3, dif3, day3, r3, s3, w3, e3, sp3] = f_factor(f3On, f3Sym, f3Sign, f3W, f3Unit)
+[px4, pct4, dif4, day4, r4, s4, w4, e4, sp4] = f_factor(f4On, f4Sym, f4Sign, f4W, f4Unit)
+[px5, pct5, dif5, day5, r5, s5, w5, e5, sp5] = f_factor(f5On, f5Sym, f5Sign, f5W, f5Unit)
+[px6, pct6, dif6, day6, r6, s6, w6, e6, sp6] = f_factor(f6On, f6Sym, f6Sign, f6W, f6Unit)
+[px7, pct7, dif7, day7, r7, s7, w7, e7, sp7] = f_factor(f7On, f7Sym, f7Sign, f7W, f7Unit)
+[px8, pct8, dif8, day8, r8, s8, w8, e8, sp8] = f_factor(f8On, f8Sym, f8Sign, f8W, f8Unit)
 
-sentVal = sentimentLongPct < 0 ? na : sentimentLongPct
-sSent   = sentMode == "Blend crowd long %" ? sentVal : na
+// ───────────────────────────── sentiment + final score
+sentVal    = sentimentLongPct < 0 ? na : sentimentLongPct
+sSent      = sentMode == "Blend crowd long %" ? sentVal : na
 isOverride = sentMode == "Override final score" and not na(sentVal)
 
-num = f_num(sRsi, wRsi) + f_num(sFast, wFast) + f_num(sSlow, wSlow) + f_num(sVol, wVol) +
-     f_num(sDxy, wDxyEff) + f_num(sYld, wYldEff) + f_num(sSent, wSent)
-den = f_den(sRsi, wRsi) + f_den(sFast, wFast) + f_den(sSlow, wSlow) + f_den(sVol, wVol) +
-     f_den(sDxy, wDxyEff) + f_den(sYld, wYldEff) + f_den(sSent, wSent)
+num = f_num(sRsi, wRsi) + f_num(sFast, wFast) + f_num(sSlow, wSlow) + f_num(sVol, wVol) + f_num(sSent, wSent) +
+     f_num(s1, w1) + f_num(s2, w2) + f_num(s3, w3) + f_num(s4, w4) + f_num(s5, w5) + f_num(s6, w6) + f_num(s7, w7) + f_num(s8, w8)
+den = f_den(sRsi, wRsi) + f_den(sFast, wFast) + f_den(sSlow, wSlow) + f_den(sVol, wVol) + f_den(sSent, wSent) +
+     f_den(s1, w1) + f_den(s2, w2) + f_den(s3, w3) + f_den(s4, w4) + f_den(s5, w5) + f_den(s6, w6) + f_den(s7, w7) + f_den(s8, w8)
 raw      = den > 0 ? num / den : na
 smoothed = ta.ema(raw, smoothLen)
 score    = isOverride ? sentVal : smoothed
+scoreSp  = f_spark(score, sparkLen)
 
+// ───────────────────────────── daily volatility statistics (closed days only, no repaint)
+dRng = high - low
+dRet = math.log(close / close[1])
+[adr, adrMed, adrSd, adrMax, rvol, atrD, atrDW] = request.security(syminfo.tickerid, "D",
+     [ta.sma(dRng, statDays)[1], ta.percentile_nearest_rank(dRng, statDays, 50)[1], ta.stdev(dRng, statDays)[1],
+     ta.highest(dRng, statDays)[1], ta.stdev(dRet, statDays)[1], ta.atr(atrLen)[1], ta.atr(statDays)[1]],
+     lookahead = barmerge.lookahead_on)
+[dOpenT, dHighT, dLowT] = request.security(syminfo.tickerid, "D", [open, high, low], lookahead = barmerge.lookahead_off)
+
+volScale = volAdj and not na(atrD) and not na(atrDW) and atrDW > 0 ? f_clamp(atrD / atrDW, 0.5, 2.0) : 1.0
+expDay   = adr * volScale
+sigmaUsd = close * rvol
+rvolAnn  = rvol * math.sqrt(252) * 100.0
+todayRng = dHighT - dLowT
+todayPct = todayRng / adr * 100.0
+
+// ───────────────────────────── session tracking
+f_sessMinutes(string s) =>
+    int h1 = int(str.tonumber(str.substring(s, 0, 2)))
+    int m1 = int(str.tonumber(str.substring(s, 2, 4)))
+    int h2 = int(str.tonumber(str.substring(s, 5, 7)))
+    int m2 = int(str.tonumber(str.substring(s, 7, 9)))
+    int mins = (h2 * 60 + m2) - (h1 * 60 + m1)
+    mins <= 0 ? mins + 1440 : mins
+
+f_session(bool on, simple string sess, simple string tz) =>
+    var array<float> rng = array.new<float>()
+    var array<float> up  = array.new<float>()
+    var array<float> dn  = array.new<float>()
+    var float sO = na
+    var float sH = na
+    var float sL = na
+    bool inS   = on and timeframe.isintraday and not na(time(timeframe.period, sess, tz))
+    bool prevS = inS[1]
+    bool first = inS and not prevS
+    bool ended = (not inS) and prevS
+    if first
+        sO := open
+        sH := high
+        sL := low
+    else if inS
+        sH := math.max(sH, high)
+        sL := math.min(sL, low)
+    if ended and not na(sO)
+        array.push(rng, sH - sL)
+        array.push(up, sH - sO)
+        array.push(dn, sO - sL)
+        if array.size(rng) > statDays
+            array.shift(rng)
+            array.shift(up)
+            array.shift(dn)
+    [inS, first, ended, sO, sH, sL, rng, up, dn]
+
+f_stats(array<float> a) =>
+    int n = array.size(a)
+    float mean = n > 0 ? array.avg(a) : na
+    float med  = n > 0 ? array.median(a) : na
+    float sd   = n > 1 ? array.stdev(a) : na
+    float mx   = n > 0 ? array.max(a) : na
+    float p90  = n > 0 ? array.percentile_nearest_rank(a, 90) : na
+    [n, mean, med, sd, mx, p90]
+
+f_ex(array<float> a) =>
+    int n = array.size(a)
+    float mean = n > 0 ? array.avg(a) : na
+    float mx   = n > 0 ? array.max(a) : na
+    [mean, mx]
+
+[inA, fA, endA, oA, hA, lA, rA, uA, dA] = f_session(asiaOn, asiaSess, asiaTz)
+[inL, fL, endL, oL, hL, lL, rL, uL, dL] = f_session(lonOn,  lonSess,  lonTz)
+[inN, fN, endN, oN, hN, lN, rN, uN, dN] = f_session(nyOn,   nySess,   nyTz)
+
+[nA, mRA, mdRA, sdRA, mxRA, p9RA] = f_stats(rA)
+[nL, mRL, mdRL, sdRL, mxRL, p9RL] = f_stats(rL)
+[nN, mRN, mdRN, sdRN, mxRN, p9RN] = f_stats(rN)
+[mUA, xUA] = f_ex(uA)
+[mDA, xDA] = f_ex(dA)
+[mUL, xUL] = f_ex(uL)
+[mDL, xDL] = f_ex(dL)
+[mUN, xUN] = f_ex(uN)
+[mDN, xDN] = f_ex(dN)
+
+curId = inN ? 2 : inL ? 1 : inA ? 0 : -1
+var int lastEnded = -1
+if endA
+    lastEnded := 0
+if endL
+    lastEnded := 1
+if endN
+    lastEnded := 2
+
+f_on(int id) =>
+    id == 0 ? asiaOn : id == 1 ? lonOn : nyOn
+
+f_next(int from) =>
+    int res = -1
+    int c = from < 0 ? 2 : from
+    for k = 1 to 3
+        c := (c + 1) % 3
+        if res < 0 and f_on(c)
+            res := c
+    res
+
+f_sName(int id) =>
+    id == 0 ? "Asia" : id == 1 ? "London" : id == 2 ? "New York" : "–"
+
+f_pick(int id, float a, float b, float c) =>
+    id == 0 ? a : id == 1 ? b : id == 2 ? c : na
+
+nextId  = f_next(curId >= 0 ? curId : lastEnded)
+nxN     = int(f_pick(nextId, nA, nL, nN))
+nxExpR  = f_pick(nextId, mRA, mRL, mRN) * volScale
+nxMedR  = f_pick(nextId, mdRA, mdRL, mdRN)
+nxSdR   = f_pick(nextId, sdRA, sdRL, sdRN)
+nxP90   = f_pick(nextId, p9RA, p9RL, p9RN)
+nxMaxR  = f_pick(nextId, mxRA, mxRL, mxRN)
+nxUp    = f_pick(nextId, mUA, mUL, mUN) * volScale
+nxDn    = f_pick(nextId, mDA, mDL, mDN) * volScale
+nxMaxUp = f_pick(nextId, xUA, xUL, xUN)
+nxMaxDn = f_pick(nextId, xDA, xDL, xDN)
+
+curRng  = f_pick(curId, hA - lA, hL - lL, hN - lN)
+curOpen = f_pick(curId, oA, oL, oN)
+curExp  = f_pick(curId, mRA, mRL, mRN) * volScale
+curP90  = f_pick(curId, p9RA, p9RL, p9RN)
+curUsed = curRng / curExp * 100.0
+exceed  = curId >= 0 and not na(curExp) and curRng > curExp
+exceedP = curId >= 0 and not na(curP90) and curRng > curP90
+
+// ───────────────────────────── projection drawn on the price chart
+var array<line>  projLines  = array.new<line>()
+var array<label> projLabels = array.new<label>()
+
+f_proj(string nm, float o, float eu, float ed, float mu, float md, int mins, color c) =>
+    int x2 = time + mins * 60000
+    array.push(projLines, line.new(time, o,      x2, o,      xloc = xloc.bar_time, color = color.new(c, 50), style = line.style_dashed, force_overlay = true))
+    array.push(projLines, line.new(time, o + eu, x2, o + eu, xloc = xloc.bar_time, color = c, width = 2, force_overlay = true))
+    array.push(projLines, line.new(time, o - ed, x2, o - ed, xloc = xloc.bar_time, color = c, width = 2, force_overlay = true))
+    array.push(projLines, line.new(time, o + mu, x2, o + mu, xloc = xloc.bar_time, color = c, style = line.style_dotted, force_overlay = true))
+    array.push(projLines, line.new(time, o - md, x2, o - md, xloc = xloc.bar_time, color = c, style = line.style_dotted, force_overlay = true))
+    string txt = nm + " · exp +" + f_fmt(eu, "0.0") + " / −" + f_fmt(ed, "0.0") + " · max +" + f_fmt(mu, "0.0") + " / −" + f_fmt(md, "0.0")
+    array.push(projLabels, label.new(x2, o + mu, txt, xloc = xloc.bar_time, style = label.style_label_left, color = color.new(c, 70), textcolor = color.white, size = size.small, force_overlay = true))
+    while array.size(projLines) > keepSess * 15
+        line.delete(array.shift(projLines))
+    while array.size(projLabels) > keepSess * 3
+        label.delete(array.shift(projLabels))
+
+minsA = f_sessMinutes(asiaSess)
+minsL = f_sessMinutes(lonSess)
+minsN = f_sessMinutes(nySess)
+
+if drawProj and timeframe.isintraday
+    if fA and nA > 0
+        f_proj("ASIA", oA, mUA * volScale, mDA * volScale, xUA, xDA, minsA, color.purple)
+    if fL and nL > 0
+        f_proj("LONDON", oL, mUL * volScale, mDL * volScale, xUL, xDL, minsL, color.aqua)
+    if fN and nN > 0
+        f_proj("NEW YORK", oN, mUN * volScale, mDN * volScale, xUN, xDN, minsN, color.orange)
+
+// ───────────────────────────── plots
 plot(score, "Greed/Fear skóre", color = f_zoneColor(score), linewidth = 2)
 plot(sRsi,  "RSI skóre",       display = display.data_window)
 plot(sFast, "SMA fast skóre",  display = display.data_window)
 plot(sSlow, "SMA slow skóre",  display = display.data_window)
 plot(sVol,  "ATR skóre",       display = display.data_window)
-plot(sDxy,  "DXY skóre",       display = display.data_window)
-plot(sYld,  "US10Y skóre",     display = display.data_window)
+plot(s1, "Faktor 1 skóre", display = display.data_window)
+plot(s2, "Faktor 2 skóre", display = display.data_window)
+plot(s3, "Faktor 3 skóre", display = display.data_window)
+plot(s4, "Faktor 4 skóre", display = display.data_window)
+plot(s5, "Faktor 5 skóre", display = display.data_window)
+plot(s6, "Faktor 6 skóre", display = display.data_window)
+plot(s7, "Faktor 7 skóre", display = display.data_window)
+plot(s8, "Faktor 8 skóre", display = display.data_window)
+plot(nxExpR, "Oč. range ďalšej seansy", display = display.data_window)
+plot(curRng, "Range aktuálnej seansy",  display = display.data_window)
 
 h0   = hline(0,   "0",   color = color.new(color.gray, 100))
 h25  = hline(25,  "25 Extreme Fear",  color = color.new(color.red, 40),   linestyle = hline.style_dashed)
@@ -162,43 +447,115 @@ xFearOut  = ta.crossover(score, 25)
 xGreedIn  = ta.crossover(score, 75)
 xGreedOut = ta.crossunder(score, 75)
 
-plotshape(showShape and xFearIn   ? score : na, title = "Vstup do Extreme Fear",   style = shape.triangledown, location = location.absolute, color = color.red,   size = size.tiny)
-plotshape(showShape and xFearOut  ? score : na, title = "Výstup z Extreme Fear",   style = shape.triangleup,   location = location.absolute, color = color.lime,  size = size.tiny)
-plotshape(showShape and xGreedIn  ? score : na, title = "Vstup do Extreme Greed",  style = shape.triangleup,   location = location.absolute, color = color.green, size = size.tiny)
+plotshape(showShape and xFearIn   ? score : na, title = "Vstup do Extreme Fear",   style = shape.triangledown, location = location.absolute, color = color.red,    size = size.tiny)
+plotshape(showShape and xFearOut  ? score : na, title = "Výstup z Extreme Fear",   style = shape.triangleup,   location = location.absolute, color = color.lime,   size = size.tiny)
+plotshape(showShape and xGreedIn  ? score : na, title = "Vstup do Extreme Greed",  style = shape.triangleup,   location = location.absolute, color = color.green,  size = size.tiny)
 plotshape(showShape and xGreedOut ? score : na, title = "Výstup z Extreme Greed",  style = shape.triangledown, location = location.absolute, color = color.orange, size = size.tiny)
 
+// ───────────────────────────── alerts
 alertcondition(xFearIn,     "Extreme Fear < 25 (cross)",   "Gold G/F: EXTREME FEAR — score crossed below 25 on {{ticker}} {{interval}}, score={{plot_0}}")
 alertcondition(xGreedIn,    "Extreme Greed > 75 (cross)",  "Gold G/F: EXTREME GREED — score crossed above 75 on {{ticker}} {{interval}}, score={{plot_0}}")
 alertcondition(score < 25,  "Extreme Fear < 25 (state)",   "Gold G/F: score < 25 (Extreme Fear) on {{ticker}} {{interval}}")
 alertcondition(score > 75,  "Extreme Greed > 75 (state)",  "Gold G/F: score > 75 (Extreme Greed) on {{ticker}} {{interval}}")
 alertcondition(xFearOut or xGreedOut, "Exit extreme zone", "Gold G/F: score left an extreme zone on {{ticker}} {{interval}}")
+alertcondition(exceed and not exceed[1],   "Session range > expected", "Gold G/F: session range exceeded the expected (vol-adjusted) range on {{ticker}} {{interval}}")
+alertcondition(exceedP and not exceedP[1], "Session range > p90",      "Gold G/F: session range exceeded the 90th percentile of the last sessions on {{ticker}} {{interval}}")
 
 if barstate.isconfirmed and xFearIn
     alert("Gold G/F: EXTREME FEAR < 25 on " + syminfo.ticker + " " + timeframe.period + " · score " + str.tostring(score, "0.0"), alert.freq_once_per_bar_close)
 if barstate.isconfirmed and xGreedIn
     alert("Gold G/F: EXTREME GREED > 75 on " + syminfo.ticker + " " + timeframe.period + " · score " + str.tostring(score, "0.0"), alert.freq_once_per_bar_close)
 
+// ───────────────────────────── tables
 f_pos(string p) =>
-    p == "Top right" ? position.top_right : p == "Bottom right" ? position.bottom_right : p == "Top left" ? position.top_left : position.bottom_left
+    p == "Top right" ? position.top_right : p == "Bottom right" ? position.bottom_right : p == "Top left" ? position.top_left :
+     p == "Bottom left" ? position.bottom_left : p == "Middle right" ? position.middle_right : position.middle_left
 
-var table tbl = table.new(f_pos(tablePos), 3, 9, bgcolor = color.new(color.black, 25), frame_color = color.gray, frame_width = 1, border_color = color.new(color.gray, 60), border_width = 1)
+tsz = tszIn == "Tiny" ? size.tiny : tszIn == "Normal" ? size.normal : size.small
 
-f_row(int r, string name, string val, float s) =>
-    table.cell(tbl, 0, r, name, text_color = color.white, text_size = size.small, text_halign = text.align_left)
-    table.cell(tbl, 1, r, val,  text_color = color.white, text_size = size.small)
-    table.cell(tbl, 2, r, f_fmt(s, "0"), text_color = color.white, text_size = size.small, bgcolor = na(s) ? na : color.new(f_zoneColor(s), 55))
+var table t1 = table.new(f_pos(pos1), 6, 15, bgcolor = color.new(color.black, 25), frame_color = color.gray, frame_width = 1, border_color = color.new(color.gray, 60), border_width = 1)
+var table t2 = table.new(f_pos(pos2), 3, 18, bgcolor = color.new(color.black, 25), frame_color = color.gray, frame_width = 1, border_color = color.new(color.gray, 60), border_width = 1)
 
-if showTable and barstate.islast
-    table.cell(tbl, 0, 0, "Gold G/F", text_color = color.yellow, text_size = size.small, text_halign = text.align_left)
-    table.cell(tbl, 1, 0, "Hodnota",  text_color = color.silver, text_size = size.small)
-    table.cell(tbl, 2, 0, "Skóre",    text_color = color.silver, text_size = size.small)
-    table.cell(tbl, 0, 1, "SKÓRE",    text_color = color.white, text_size = size.normal, text_halign = text.align_left)
-    table.cell(tbl, 1, 1, isOverride ? f_zoneName(score) + " (manual)" : f_zoneName(score), text_color = color.white, text_size = size.small)
-    table.cell(tbl, 2, 1, f_fmt(score, "0.0"), text_color = color.black, text_size = size.normal, bgcolor = f_zoneColor(score))
-    f_row(2, "RSI(" + str.tostring(rsiLen) + ")",        f_fmt(rsiVal, "0.0"), sRsi)
-    f_row(3, "Dist SMA" + str.tostring(fastLen),         f_sgn(dFast) + " %", sFast)
-    f_row(4, "Dist SMA" + str.tostring(slowLen),         f_sgn(dSlow) + " %", sSlow)
-    f_row(5, "ATR režim " + (upTrend ? "↑" : "↓"),       f_fmt(atrRatio, "0.00") + "x", sVol)
-    f_row(6, "DXY",   useDxy ? f_sgn(dxyChg) + " % · r " + f_fmt(corrDxy, "0.00") : "off", sDxy)
-    f_row(7, "US10Y", useYld ? f_sgn(yldChg) + " · r " + f_fmt(corrYld, "0.00") : "off", sYld)
-    f_row(8, "Sentiment", sentMode == "Off" ? "off" : na(sentVal) ? "na" : f_fmt(sentVal, "0") + (isOverride ? " (override)" : " % long"), sSent)
+f_c(table t, int c, int r, string txt, color tc, color bg, string al) =>
+    table.cell(t, c, r, txt, text_color = tc, text_size = tsz, bgcolor = bg, text_halign = al)
+
+f_crow(int r, string name, string val, float s) =>
+    f_c(t1, 0, r, name, color.white, color(na), text.align_left)
+    f_c(t1, 1, r, "", color.white, color(na), text.align_left)
+    f_c(t1, 2, r, val, color.white, color(na), text.align_right)
+    f_c(t1, 3, r, "", color.white, color(na), text.align_right)
+    f_c(t1, 4, r, "", color.white, color(na), text.align_right)
+    f_c(t1, 5, r, f_fmt(s, "0"), color.white, na(s) ? color(na) : color.new(f_zoneColor(s), 55), text.align_center)
+
+f_frow(int r, bool on, string sym, string unit, string signMode, float pct, float dif, float dPct, float rr, float sc, float wE, string sp) =>
+    string arrow = signMode == "Direct" ? "↑" : signMode == "Inverse" ? "↓" : "~"
+    string nm    = f_name(sym) + " " + arrow
+    string chg   = unit == "%" ? f_sgn(pct) + " %" : f_sgnf(dif * f_unitMult(unit), "0.0") + f_unitLbl(unit) + " (" + f_sgn(pct) + " %)"
+    color  tc    = not on ? color.gray : na(pct) ? color.white : pct >= 0 ? color.lime : color.red
+    color  dc    = not on or na(dPct) ? color.gray : dPct >= 0 ? color.lime : color.red
+    f_c(t1, 0, r, nm, on ? color.white : color.gray, color(na), text.align_left)
+    f_c(t1, 1, r, on ? sp : "off", tc, color(na), text.align_left)
+    f_c(t1, 2, r, on ? chg : "–", tc, color(na), text.align_right)
+    f_c(t1, 3, r, on ? f_sgn(dPct) + " %" : "–", dc, color(na), text.align_right)
+    f_c(t1, 4, r, on ? "r " + f_fmt(rr, "0.00") + " · w " + f_fmt(wE, "0.0") : "–", color.silver, color(na), text.align_right)
+    f_c(t1, 5, r, on ? f_fmt(sc, "0") : "–", color.white, on and not na(sc) ? color.new(f_zoneColor(sc), 55) : color(na), text.align_center)
+
+f_vrow(int r, string a, string b, string c, color ca) =>
+    f_c(t2, 0, r, a, ca, color(na), text.align_left)
+    f_c(t2, 1, r, b, color.white, color(na), text.align_right)
+    f_c(t2, 2, r, c, color.silver, color(na), text.align_left)
+
+f_srow(int r, string nm, int n, float mR, float mdR, float sdR, float mxR, float p9R, float mU, float xU, float mD, float xD, bool on) =>
+    string a = nm + (on ? " (" + str.tostring(n) + ")" : " off")
+    string b = on and n > 0 ? "Ø " + f_fmt(mR, "0.0") + " · md " + f_fmt(mdR, "0.0") + " · p90 " + f_fmt(p9R, "0.0") + " · max " + f_fmt(mxR, "0.0") : "–"
+    string c = on and n > 0 ? "↑ Ø " + f_fmt(mU, "0.0") + " / max " + f_fmt(xU, "0.0") + "  ↓ Ø " + f_fmt(mD, "0.0") + " / max " + f_fmt(xD, "0.0") : "–"
+    f_vrow(r, a, b, c, color.white)
+
+if showT1 and barstate.islast
+    f_c(t1, 0, 0, "Gold G/F PRO", color.yellow, color(na), text.align_left)
+    f_c(t1, 1, 0, "Mini graf (" + str.tostring(sparkLen) + " b)", color.silver, color(na), text.align_left)
+    f_c(t1, 2, 0, "Δ " + str.tostring(macroLen) + " b", color.silver, color(na), text.align_right)
+    f_c(t1, 3, 0, "Dnes", color.silver, color(na), text.align_right)
+    f_c(t1, 4, 0, "r(zlato) · váha", color.silver, color(na), text.align_right)
+    f_c(t1, 5, 0, "Skóre", color.silver, color(na), text.align_center)
+    f_c(t1, 0, 1, "SKÓRE", color.white, color(na), text.align_left)
+    f_c(t1, 1, 1, scoreSp, f_zoneColor(score), color(na), text.align_left)
+    f_c(t1, 2, 1, isOverride ? f_zoneName(score) + " (manual)" : f_zoneName(score), color.white, color(na), text.align_right)
+    f_c(t1, 3, 1, f_sgnf(score - score[1], "0.0"), color.silver, color(na), text.align_right)
+    f_c(t1, 4, 1, "Σw " + f_fmt(den, "0.0"), color.silver, color(na), text.align_right)
+    f_c(t1, 5, 1, f_fmt(score, "0.0"), color.black, f_zoneColor(score), text.align_center)
+    f_crow(2, "RSI(" + str.tostring(rsiLen) + ")",   f_fmt(rsiVal, "0.0"), sRsi)
+    f_crow(3, "Dist SMA" + str.tostring(fastLen),    f_sgn(dFast) + " %", sFast)
+    f_crow(4, "Dist SMA" + str.tostring(slowLen),    f_sgn(dSlow) + " %", sSlow)
+    f_crow(5, "ATR režim " + (upTrend ? "↑" : "↓"),  f_fmt(atrRatio, "0.00") + "x", sVol)
+    f_crow(6, "Sentiment", sentMode == "Off" ? "off" : na(sentVal) ? "na" : f_fmt(sentVal, "0") + (isOverride ? " (override)" : " % long"), sSent)
+    f_frow(7,  f1On, f1Sym, f1Unit, f1Sign, pct1, dif1, day1, r1, s1, w1, sp1)
+    f_frow(8,  f2On, f2Sym, f2Unit, f2Sign, pct2, dif2, day2, r2, s2, w2, sp2)
+    f_frow(9,  f3On, f3Sym, f3Unit, f3Sign, pct3, dif3, day3, r3, s3, w3, sp3)
+    f_frow(10, f4On, f4Sym, f4Unit, f4Sign, pct4, dif4, day4, r4, s4, w4, sp4)
+    f_frow(11, f5On, f5Sym, f5Unit, f5Sign, pct5, dif5, day5, r5, s5, w5, sp5)
+    f_frow(12, f6On, f6Sym, f6Unit, f6Sign, pct6, dif6, day6, r6, s6, w6, sp6)
+    f_frow(13, f7On, f7Sym, f7Unit, f7Sign, pct7, dif7, day7, r7, s7, w7, sp7)
+    f_frow(14, f8On, f8Sym, f8Unit, f8Sign, pct8, dif8, day8, r8, s8, w8, sp8)
+
+if showT2 and barstate.islast
+    string nxName = f_sName(nextId)
+    string cuName = f_sName(curId)
+    f_vrow(0, "VOLATILITA " + str.tostring(statDays) + " D", "Hodnota", "Poznámka", color.yellow)
+    f_vrow(1, "ADR priemer",      f_fmt(adr, "0.0") + " $",      "medián " + f_fmt(adrMed, "0.0") + " · σ " + f_fmt(adrSd, "0.0") + " · max " + f_fmt(adrMax, "0.0"), color.white)
+    f_vrow(2, "Realizovaná vol",  f_fmt(rvolAnn, "0.0") + " % p.a.", "1σ deň ≈ " + f_fmt(sigmaUsd, "0.0") + " $ (" + f_fmt(rvol * 100.0, "0.00") + " %)", color.white)
+    f_vrow(3, "Dnešný range",     f_fmt(todayRng, "0.0") + " $",  f_fmt(todayPct, "0") + " % ADR", todayPct > 100 ? color.orange : color.white)
+    f_vrow(4, "Vol scale",        f_fmt(volScale, "0.00") + "x", "ATR" + str.tostring(atrLen) + " / ATR" + str.tostring(statDays) + " (denné)" + (volAdj ? "" : " · vypnuté"), volScale > 1.2 ? color.orange : volScale < 0.8 ? color.aqua : color.white)
+    f_vrow(5, "Oč. denný range",  f_fmt(expDay, "0.0") + " $",  "± " + f_fmt(adrSd, "0.0") + " · high/low od close: " + f_fmt(close + expDay / 2, "0.0") + " / " + f_fmt(close - expDay / 2, "0.0"), color.white)
+    f_vrow(6, "SEANSY (posl. " + str.tostring(statDays) + ")", "range $: Ø · medián · p90 · max", "odchýlky od open $", color.yellow)
+    f_srow(7, "Asia",     nA, mRA, mdRA, sdRA, mxRA, p9RA, mUA, xUA, mDA, xDA, asiaOn)
+    f_srow(8, "London",   nL, mRL, mdRL, sdRL, mxRL, p9RL, mUL, xUL, mDL, xDL, lonOn)
+    f_srow(9, "New York", nN, mRN, mdRN, sdRN, mxRN, p9RN, mUN, xUN, mDN, xDN, nyOn)
+    f_vrow(10, "AKTUÁLNA SEANSA", curId >= 0 ? cuName : "mimo seansy", timeframe.isintraday ? "" : "seansy len na intraday grafe", color.yellow)
+    f_vrow(11, "Range zatiaľ", curId >= 0 ? f_fmt(curRng, "0.0") + " $" : "–", curId >= 0 ? f_fmt(curUsed, "0") + " % očakávaného (" + f_fmt(curExp, "0.0") + ") · open " + f_fmt(curOpen, "0.0") : "–", exceedP ? color.red : exceed ? color.orange : color.white)
+    f_vrow(12, "ĎALŠIA SEANSA", nxName, nxN > 0 ? "n = " + str.tostring(nxN) : "bez dát", color.yellow)
+    f_vrow(13, "Oč. range",       f_fmt(nxExpR, "0.0") + " $", "± σ " + f_fmt(nxSdR, "0.0") + " · medián " + f_fmt(nxMedR, "0.0") + " · p90 " + f_fmt(nxP90, "0.0") + " · max " + f_fmt(nxMaxR, "0.0"), color.white)
+    f_vrow(14, "Oč. high / low",  f_fmt(close + nxUp, "0.0") + " / " + f_fmt(close - nxDn, "0.0"), "od aktuálnej ceny: +" + f_fmt(nxUp, "0.0") + " / −" + f_fmt(nxDn, "0.0") + " $", color.white)
+    f_vrow(15, "Max odchýlka",    "+" + f_fmt(nxMaxUp, "0.0") + " / −" + f_fmt(nxMaxDn, "0.0") + " $", "high " + f_fmt(close + nxMaxUp, "0.0") + " / low " + f_fmt(close - nxMaxDn, "0.0"), color.orange)
+    f_vrow(16, "Pásmo range",     f_fmt(nxExpR - nxSdR, "0.0") + " – " + f_fmt(nxExpR + nxSdR, "0.0") + " $", "očakávaný ± 1σ (vol-adjusted)", color.white)
+    f_vrow(17, "Pozn.", "štatistika, nie predpoveď", "pri FOMC / NFP / CPI rátaj s p90 až max", color.gray)
