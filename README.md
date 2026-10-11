@@ -76,12 +76,15 @@ Pre každý faktor: **mini graf** (sparkline z posledných N barov), **Δ za N b
 - **Ďalšia seansa**: očakávaný range (vol-adjusted) ± σ, očakávaný high / low od aktuálnej ceny, **maximálna odchýlka** z okna a pásmo range.
 
 ### Projekcia na cenovom grafe
-Pri otvorení každej seansy sa vykreslia čiary na dĺžku seansy: open (čiarkovaná), očakávaný high / low (plné), max high / low (bodkované) + štítok s hodnotami. Farby: Asia fialová, London tyrkysová, New York oranžová. Uchovávajú sa posledné N seansy.
+Pri otvorení každej seansy sa na dĺžku seansy vykreslí priehľadný **box očakávaného range** (open + Ø up × vol scale / open − Ø down × vol scale), čiarkovaná čiara open, bodkované čiary **max odchýlky** z okna a štítok s hodnotami. Farby seáns sú nastaviteľné (Asia fialová, London tyrkysová, New York oranžová). Uchovávajú sa posledné N seansy.
 
 ### Alerty
 Prekríženie pod 25 / nad 75, stav pod 25 / nad 75, opustenie extrémnej zóny, **range seansy > očakávaný** a **range seansy > p90**. Pri potvrdenej sviečke sa odošle aj `alert()` s tickerom, timeframom a skóre.
 
 ### Nastavenia
-1) Core dĺžky · 2) normalizácia · 3) faktory (lookback, korelácia, dĺžka mini grafu, 8 slotov) · 4) sentiment · 5) core váhy · 6) volatilita a seansy (okno, vol scale, časy a časové zóny seáns, kreslenie projekcie) · 7) vizuály (vyhladenie, pozadie, tvary, obe tabuľky a ich pozícia, veľkosť textu).
+Core · Normalization · Factor Instruments (lookback, korelácia, dĺžka mini grafu, 8 slotov) · Sentiment · Core Weights · Volatility & Sessions (okno, vol scale, časy, časové zóny a farby seáns, projekcia) · Style (vyhladenie, farby Fear / Neutral / Greed, gradientová výplň, pozadie, markery) · Dashboard (obe tabuľky, pozícia, veľkosť textu, farby pozadia / akcentu / textu). Každý vstup má tooltip.
+
+### Štruktúra kódu
+Sekcie Settings → Types → Functions → Methods → Core → Factors → Score → Daily volatility → Sessions → Plots → Alerts → Dashboard. Faktory a seansy sú používateľom definované typy (`Factor`, `Session`) s metódami, skóre je farbené gradientom Fear → Neutral → Greed a všetky denné štatistiky čítajú len uzavreté dni (bez repaintu).
 
 Poznámka: seansy a projekcia fungujú len na intraday grafe; denná štatistika funguje všade. Reálny výnos `FRED:DFII10` má len denné dáta – použi ho v slote len na D1 grafe.
