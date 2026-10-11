@@ -641,9 +641,9 @@ pCH  = plot(coneHi,  "Cone expected high", color.new(coneCol, 0),  2, plot.style
 pCL  = plot(coneLo,  "Cone expected low",  color.new(coneCol, 0),  2, plot.style_linebr, force_overlay = true)
 pCH9 = plot(coneHi9, "Cone p90 high",      color.new(coneCol, 45), 1, plot.style_linebr, force_overlay = true)
 pCL9 = plot(coneLo9, "Cone p90 low",       color.new(coneCol, 45), 1, plot.style_linebr, force_overlay = true)
-fill(pCH, pCL,   color = color.new(coneCol, 82), title = "Cone expected", force_overlay = true)
-fill(pCH9, pCH,  color = color.new(coneCol, 93), title = "Cone p90 upper", force_overlay = true)
-fill(pCL, pCL9,  color = color.new(coneCol, 93), title = "Cone p90 lower", force_overlay = true)
+fill(pCH, pCL,   color = color.new(coneCol, 82), title = "Cone expected")
+fill(pCH9, pCH,  color = color.new(coneCol, 93), title = "Cone p90 upper")
+fill(pCL, pCL9,  color = color.new(coneCol, 93), title = "Cone p90 lower")
 
 h25 = hline(25, "Extreme Fear",  color.new(fearCol, 40),  hline.style_dashed)
 h45 = hline(45, "Caution",       color.new(neutCol, 75),  hline.style_dotted)
