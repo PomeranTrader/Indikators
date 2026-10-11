@@ -59,6 +59,18 @@ Z nich: priemer, medián, σ, p90, max. Projekcia ďalšej seansy:
 
 Na cenovom grafe sa pri otvorení seansy vykreslia čiary: open (čiarkovaná), očakávaný high/low (plné) a max high/low (bodkované) + štítok. Pred otvorením sa projekcia počíta od aktuálnej ceny v tabuľke.
 
+## 4b. Cesta v čase – profil seansy
+
+Range seansy nie je jedno číslo, ale krivka v čase. Model preto pre každú seansu ukladá **odchýlku od open v každom 30-minútovom úseku** (max nahor = high − open, max nadol = open − low, kumulatívne). Z posledných 30 seáns vznikne matica 30 × počet úsekov a z nej:
+
+- **typická krivka** = priemer stĺpca v danom čase (× vol scale),
+- **p90 krivka** = 90. percentil stĺpca (bez škálovania, „stresová" hranica),
+- **typický čas high / low** = najčastejší úsek, v ktorom seansa urobila svoj high / low.
+
+Na grafe je to kužeľ: po otvorení je úzky, s časom sa rozširuje podľa toho, ako rýchlo trh v tej seanse zvyčajne „dýcha". London typicky zrýchli v prvých 90 minútach a znova pri otvorení NY, New York má najväčší prírastok okolo 14:30–16:00 London (makro dáta, otvorenie akcií). Kužeľ sa opiera o reálne čísla z grafu, nie o tieto všeobecné pravidlá.
+
+Čítanie: cena na hornej typickej hranici = seansa už odohrala svoj priemer v tomto čase, ďalší pohyb nahor je „nadpriemer". Cena mimo p90 = ide o výnimočnú seansu (1 z 10), typicky makro udalosť. Vtedy platí štatistika chvosta, nie priemer.
+
 ## 5. Praktické čítanie
 
 - Skóre < 25 + faktory potvrdzujú (DXY a výnosy klesajú, striebro drží) → sell-off je pravdepodobne „umytý", hľadaj obrat.

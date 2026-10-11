@@ -42,7 +42,7 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**. Zložený oscilátor 0�
 
 ### Inštalácia
 1. Otvor graf **XAUUSD** (odporúčané M15 – H1 pre seansy, D1 pre makro pohľad) a dole klikni na **Pine Editor**.
-2. Otvor `gold-greed-fear.pine` na GitHube, klikni na **Raw**, Ctrl+A, Ctrl+C. Kód má cca 670 riadkov a posledný riadok je `// KONIEC SÚBORU – Gold G/F PRO v3`. Nekopíruj z náhľadu v chate, ten sa orezáva.
+2. Otvor `gold-greed-fear.pine` na GitHube, klikni na **Raw**, Ctrl+A, Ctrl+C. Kód má cca 820 riadkov a posledný riadok je `// KONIEC SÚBORU – Gold G/F PRO v4`. Nekopíruj z náhľadu v chate, ten sa orezáva.
 3. Zmaž obsah editora, vlož kód, klikni na **Uložiť** a potom na **Pridať do grafu**. Oscilátor sa otvorí v paneli pod cenou, projekcie seáns sa kreslia priamo na cenový graf.
 4. Ak sa vložila len časť, kompilátor hlási CE10246 alebo graf ukáže červené „KÓD JE NEÚPLNÝ". Vlož celý súbor znova.
 
@@ -69,21 +69,24 @@ Každý faktor má: zapnutie, symbol, znamienko (`Inverse` / `Direct` / `Auto (b
 ### Tabuľka 1 – komponenty + faktory
 Pre každý faktor: **mini graf** (sparkline z posledných N barov), **Δ za N barov** v natívnych jednotkách (pipy / bp / body) aj v %, **Dnes** (zmena od denného open), **r** (korelácia so zlatom) a efektívna váha, čiastkové skóre vo farbe zóny. Riadok SKÓRE má vlastný sparkline a zmenu oproti predchádzajúcemu baru.
 
-### Tabuľka 2 – volatilita 30 D + seansy
+### Tabuľka 2 – volatilita 30 D + seansy + cesta v čase
 - **ADR** priemer / medián / σ / max z uzavretých dní (bez repaintu), realizovaná volatilita (denná a anualizovaná), 1σ denný pohyb v $.
 - **Dnešný range** v $ a v % ADR, **vol scale** = ATR(14) / ATR(30) denné (0.5–2.0×), očakávaný denný range a high/low od close.
 - **Seansy** Asia / London / New York: posledných 30 seáns → Ø, medián, p90, max range, Ø a max odchýlka nahor (high − open) a nadol (open − low).
-- **Aktuálna seansa**: range zatiaľ, % z očakávaného range, open. Riadok sčervenie pri prekročení p90.
-- **Ďalšia seansa**: očakávaný range (vol-adjusted) ± σ, očakávaný high / low od aktuálnej ceny, **maximálna odchýlka** z okna a pásmo range.
+- **Aktuálna seansa**: odohraný čas, range zatiaľ v $ a v % očakávaného, koľko typicky ešte zostáva, čo je „typické teraz" (odchýlka od open v tomto čase seansy) oproti tomu, čo máme, a typický čas, kedy seansa robí high a low.
+- **Ďalšia seansa**: očakávaný range ± σ, p90, max, očakávaný high / low od aktuálnej ceny, maximálna odchýlka.
+- **Cesta v čase**: po 30 min, 1 h, 2 h, 4 h a na konci ďalšej seansy – typická odchýlka od open nahor / nadol, cenové úrovne od aktuálnej ceny a p90. Plus typický čas high a low (najčastejší 30-min úsek za posledných 30 seáns).
 
-### Projekcia na cenovom grafe
-Pri otvorení každej seansy sa na dĺžku seansy vykreslí priehľadný **box očakávaného range** (open + Ø up × vol scale / open − Ø down × vol scale), čiarkovaná čiara open, bodkované čiary **max odchýlky** z okna a štítok s hodnotami. Farby seáns sú nastaviteľné (Asia fialová, London tyrkysová, New York oranžová). Uchovávajú sa posledné N seansy.
+### Kužeľ range na cenovom grafe
+Model si pre každú seansu pamätá, ako ďaleko od open bol trh v každom 30-minútovom úseku (nastaviteľný „Time Slice"). Počas seansy sa z toho na cenovom grafe kreslí rozširujúca sa obálka: **typická** (open ± Ø odchýlka v danom čase × vol scale, plná čiara s výplňou) a **p90** (tenká čiara, slabšia výplň, bez škálovania). Minulé seansy ukazujú kužeľ tak, ako bol v tom čase známy, takže sa dá vizuálne overiť, ako model sedí. Pri otvorení seansy sa navyše vykreslí čiara open, bodkované čiary max odchýlky z okna a štítok s kľúčovými číslami a typickým časom high / low.
 
 ### Alerty
-Prekríženie pod 25 / nad 75, stav pod 25 / nad 75, opustenie extrémnej zóny, **range seansy > očakávaný** a **range seansy > p90**. Pri potvrdenej sviečke sa odošle aj `alert()` s tickerom, timeframom a skóre.
+Prekríženie pod 25 / nad 75, stav pod 25 / nad 75, opustenie extrémnej zóny, **range seansy > očakávaný**, **range seansy > p90**, **cena nad / pod p90 kužeľom**. Pri potvrdenej sviečke sa odošle aj `alert()` s tickerom, timeframom a skóre.
 
 ### Nastavenia
-Core · Normalization · Factor Instruments (lookback, korelácia, dĺžka mini grafu, 8 slotov) · Sentiment · Core Weights · Volatility & Sessions (okno, vol scale, časy, časové zóny a farby seáns, projekcia) · Style (vyhladenie, farby Fear / Neutral / Greed, gradientová výplň, pozadie, markery) · Dashboard (obe tabuľky, pozícia, veľkosť textu, farby pozadia / akcentu / textu). Každý vstup má tooltip.
+Core · Normalization · Factor Instruments (lookback, korelácia, dĺžka mini grafu, 8 slotov) · Sentiment · Core Weights · Volatility & Sessions (okno, vol scale, časy, časové zóny a farby seáns, projekcia) · Style (vyhladenie, farby Fear / Neutral / Greed, hrúbka čiary, gradientová výplň, pozadie, markery) · Dashboard (obe tabuľky, pozícia, veľkosť textu, svetlé pozadie grafu, akcent). Každý vstup má tooltip.
+
+Farby: Fear koralová `#ff4d6d`, Neutral zlatá `#f2c94c`, Greed mätová `#3ddc97`, Asia fialová, London svetlomodrá, New York oranžová. Pri svetlom grafe zapni „Light Chart Background".
 
 ### Štruktúra kódu
 Sekcie Settings → Types → Functions → Methods → Core → Factors → Score → Daily volatility → Sessions → Plots → Alerts → Dashboard. Faktory a seansy sú používateľom definované typy (`Factor`, `Session`) s metódami, skóre je farbené gradientom Fear → Neutral → Greed a všetky denné štatistiky čítajú len uzavreté dni (bez repaintu).

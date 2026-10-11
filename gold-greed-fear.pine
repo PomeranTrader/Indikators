@@ -2,12 +2,13 @@
 // This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Pomeranian trader
 //
-// Gold Greed vs Fear PRO — composite 0–100 sentiment oscillator for XAUUSD
+// Gold Greed vs Fear PRO v4 — composite 0–100 sentiment oscillator for XAUUSD
 //   · linked-market factor panel (DXY, US yields, EURUSD, USDJPY, silver, SPX, VIX …) with sparkline mini charts
 //   · 30-day volatility statistics from closed daily bars (no repaint)
-//   · Asia / London / New York session range statistics and next-session projection drawn on the price chart
+//   · Asia / London / New York session statistics, time-of-session excursion profile and a live
+//     "range cone" on the price chart: where price typically is 30 min, 1 h, 2 h … after the session open
 //
-// INŠTALÁCIA: vlož CELÝ súbor (cca 670 riadkov, posledný riadok je "// KONIEC SÚBORU – Gold G/F PRO v3").
+// INŠTALÁCIA: vlož CELÝ súbor (cca 820 riadkov, posledný riadok je "// KONIEC SÚBORU – Gold G/F PRO v4").
 // Ak sa vloží iba časť, kompilátor hlási CE10246 alebo sa na grafe zobrazí červené "KÓD JE NEÚPLNÝ".
 // Kopíruj z GitHubu cez tlačidlo "Raw", nie z náhľadu v chate (ten sa orezáva pri ~16 000 znakoch).
 
@@ -17,31 +18,31 @@ indicator("Gold Greed vs Fear PRO [Pomeranian]", "Gold G/F PRO", overlay = false
 plot(na, "", display = display.none, editable = false)
 var table tWarn = table.new(position.middle_center, 1, 1)
 if barstate.islast
-    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód z GitHubu (Raw), posledný riadok je\n\"// KONIEC SÚBORU – Gold G/F PRO v3\" a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
+    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód z GitHubu (Raw), posledný riadok je\n\"// KONIEC SÚBORU – Gold G/F PRO v4\" a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
 
 //-----------------------------------------------------------------------------}
 //Settings
 //-----------------------------------------------------------------------------{
 //Core
 coreG     = "Core components"
-rsiLen    = input.int(14,  "RSI Length",             minval = 2,  group = coreG, tooltip = "RSI of the chart symbol, used directly as a 0–100 sub-score.")
-fastLen   = input.int(50,  "Fast MA Length",         minval = 5,  group = coreG, tooltip = "Distance of price from this SMA is the short-term stretch sub-score.")
-slowLen   = input.int(200, "Slow MA Length",         minval = 20, group = coreG, tooltip = "Distance of price from this SMA is the long-term stretch sub-score.")
-atrLen    = input.int(14,  "ATR Length",             minval = 2,  group = coreG, tooltip = "Short ATR used for the volatility regime and for the daily vol scale.")
-atrAvgLen = input.int(100, "ATR Baseline Length",    minval = 10, group = coreG, tooltip = "Average of the short ATR. ATR / baseline = volatility excess.")
-trendLen  = input.int(20,  "Direction EMA Length",   minval = 2,  group = coreG, tooltip = "Price above this EMA = volatility is read as greed, below = fear.")
+rsiLen    = input.int(14,  "RSI Length",           minval = 2,  group = coreG, tooltip = "RSI of the chart symbol, used directly as a 0–100 sub-score.")
+fastLen   = input.int(50,  "Fast MA Length",       minval = 5,  group = coreG, tooltip = "Distance of price from this SMA is the short-term stretch sub-score.")
+slowLen   = input.int(200, "Slow MA Length",       minval = 20, group = coreG, tooltip = "Distance of price from this SMA is the long-term stretch sub-score.")
+atrLen    = input.int(14,  "ATR Length",           minval = 2,  group = coreG, tooltip = "Short ATR used for the volatility regime and for the daily vol scale.")
+atrAvgLen = input.int(100, "ATR Baseline Length",  minval = 10, group = coreG, tooltip = "Average of the short ATR. ATR / baseline = volatility excess.")
+trendLen  = input.int(20,  "Direction EMA Length", minval = 2,  group = coreG, tooltip = "Price above this EMA = volatility is read as greed, below = fear.")
 
 //Normalization
 normG       = "Normalization"
 normMode    = input.string("Adaptive (z-score)", "Distance Normalization", options = ["Adaptive (z-score)", "Fixed %"], group = normG,
      tooltip = "Adaptive: distance from MA is z-scored over the lookback. Fixed: a fixed % distance maps to 0 / 100.")
-normLen     = input.int(250,    "Z-score Lookback",          minval = 20,   group = normG, tooltip = "Bars used for mean and standard deviation of every z-scored input.")
-zCap        = input.float(2.0,  "Z Cap",                     minval = 0.5,  step = 0.1,   group = normG, tooltip = "|z| at which a sub-score saturates at 0 or 100.")
-fixFast     = input.float(5.0,  "Fixed: Fast MA %",          minval = 0.1,  step = 0.5,   group = normG, tooltip = "Fixed mode only. % distance from the fast MA that maps to 0 / 100.")
-fixSlow     = input.float(12.0, "Fixed: Slow MA %",          minval = 0.1,  step = 0.5,   group = normG, tooltip = "Fixed mode only. % distance from the slow MA that maps to 0 / 100.")
-volCap      = input.float(1.8,  "ATR Ratio Cap",             minval = 1.05, step = 0.05,  group = normG, tooltip = "ATR / baseline ratio at which the volatility sub-score saturates.")
-volUpFactor = input.float(0.6,  "High Vol In Uptrend Factor", minval = 0.0, maxval = 1.0, step = 0.05, group = normG, tooltip = "How much of a volatility spike counts as greed when price is above the direction EMA (0 = none, 1 = full).")
-calmPts     = input.float(10.0, "Low Vol Drift Points",      minval = 0.0,  maxval = 50.0, group = normG, tooltip = "Max points the volatility sub-score drifts from 50 toward the trend direction when volatility is below baseline.")
+normLen     = input.int(250,    "Z-score Lookback",           minval = 20,   group = normG, tooltip = "Bars used for mean and standard deviation of every z-scored input.")
+zCap        = input.float(2.0,  "Z Cap",                      minval = 0.5,  step = 0.1,   group = normG, tooltip = "|z| at which a sub-score saturates at 0 or 100.")
+fixFast     = input.float(5.0,  "Fixed: Fast MA %",           minval = 0.1,  step = 0.5,   group = normG, tooltip = "Fixed mode only. % distance from the fast MA that maps to 0 / 100.")
+fixSlow     = input.float(12.0, "Fixed: Slow MA %",           minval = 0.1,  step = 0.5,   group = normG, tooltip = "Fixed mode only. % distance from the slow MA that maps to 0 / 100.")
+volCap      = input.float(1.8,  "ATR Ratio Cap",              minval = 1.05, step = 0.05,  group = normG, tooltip = "ATR / baseline ratio at which the volatility sub-score saturates.")
+volUpFactor = input.float(0.6,  "High Vol In Uptrend Factor", minval = 0.0,  maxval = 1.0, step = 0.05, group = normG, tooltip = "How much of a volatility spike counts as greed when price is above the direction EMA (0 = none, 1 = full).")
+calmPts     = input.float(10.0, "Low Vol Drift Points",       minval = 0.0,  maxval = 50.0, group = normG, tooltip = "Max points the volatility sub-score drifts from 50 toward the trend direction when volatility is below baseline.")
 
 //Factors
 facG     = "Factor Instruments"
@@ -117,7 +118,8 @@ wSent = input.float(15.0, "Sentiment",    minval = 0.0, group = wG, tooltip = "F
 //Volatility & sessions
 volG     = "Volatility & Sessions"
 statLen  = input.int(30,    "Statistics Window",   minval = 5, maxval = 120, group = volG, tooltip = "Number of closed days (daily statistics) and closed sessions (session statistics) in the window.")
-volAdj   = input.bool(true, "Vol-adjust Expected Range", group = volG, tooltip = "Multiply the expected range by ATR(short) / ATR(window) on daily bars, clamped to 0.5–2.0.")
+volAdj   = input.bool(true, "Vol-adjust Expected Range", group = volG, tooltip = "Multiply the expected excursions by ATR(short) / ATR(window) on daily bars, clamped to 0.5–2.0. The p90 cone is never scaled.")
+sliceMin = input.int(30,    "Time Slice (minutes)", minval = 5, maxval = 120, group = volG, tooltip = "Resolution of the time-of-session profile. For every slice the model stores how far price had travelled from the session open; the live cone is built from those slices.")
 asiaOn   = input.bool(true, "Asia",     inline = "sA", group = volG)
 asiaSess = input.session("0900-1500",  "", inline = "sA", group = volG)
 asiaTz   = input.string("Asia/Tokyo",       "", inline = "sA", group = volG)
@@ -125,22 +127,24 @@ asiaCol  = input.color(#b388ff, "", inline = "sA", group = volG, tooltip = "Enab
 lonOn    = input.bool(true, "London",   inline = "sL", group = volG)
 lonSess  = input.session("0800-1630",  "", inline = "sL", group = volG)
 lonTz    = input.string("Europe/London",    "", inline = "sL", group = volG)
-lonCol   = input.color(#2dd4bf, "", inline = "sL", group = volG)
+lonCol   = input.color(#4fc3f7, "", inline = "sL", group = volG)
 nyOn     = input.bool(true, "New York", inline = "sN", group = volG)
 nySess   = input.session("0830-1700",  "", inline = "sN", group = volG)
 nyTz     = input.string("America/New_York", "", inline = "sN", group = volG)
-nyCol    = input.color(#ff9800, "", inline = "sN", group = volG)
-drawProj = input.bool(true, "Draw Session Projection", group = volG, tooltip = "At each session open, draw on the price chart: the expected range box (open ± mean excursion × vol scale), the open line and the max excursion lines of the window.")
+nyCol    = input.color(#ffb74d, "", inline = "sN", group = volG)
+showCone = input.bool(true, "Range Cone On Price Chart", group = volG, tooltip = "During a session, draw the expected excursion envelope (open ± typical excursion at the elapsed time × vol scale) and the p90 envelope on the price chart. Past sessions show the cone as it was known then, so you can check the model visually.")
+drawProj = input.bool(true, "Open Line, Max Lines & Label", group = volG, tooltip = "At each session open, draw the open line, the max excursion lines of the window and a label with the key numbers.")
 keepSess = input.int(3, "Keep Last N Sessions", minval = 1, maxval = 6, group = volG)
 
 //Style
 styG      = "Style"
 smoothLen = input.int(3, "Smoothing", minval = 1, group = styG, tooltip = "EMA length applied to the final score. 1 = off.")
-fearCol   = input.color(#ff1744, "Fear",    inline = "col", group = styG)
-neutCol   = input.color(#787b86, "Neutral", inline = "col", group = styG)
-greedCol  = input.color(#00e676, "Greed",   inline = "col", group = styG)
-showFill  = input.bool(true, "Gradient Fill",       group = styG)
-showBg    = input.bool(true, "Extreme Background",  group = styG)
+fearCol   = input.color(#ff4d6d, "Fear",    inline = "col", group = styG)
+neutCol   = input.color(#f2c94c, "Neutral", inline = "col", group = styG)
+greedCol  = input.color(#3ddc97, "Greed",   inline = "col", group = styG)
+lineW     = input.int(3, "Line Width", minval = 1, maxval = 5, group = styG)
+showFill  = input.bool(true, "Gradient Fill",        group = styG)
+showBg    = input.bool(true, "Extreme Background",   group = styG)
 showShape = input.bool(true, "Extreme Zone Markers", group = styG)
 
 //Dashboard
@@ -150,9 +154,8 @@ posD1    = input.string("Top Right", "", options = ["Top Right", "Top Left", "Bo
 showD2   = input.bool(true, "Volatility & Sessions", inline = "d2", group = dashG)
 posD2    = input.string("Top Left", "", options = ["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Middle Right", "Middle Left"], inline = "d2", group = dashG)
 dashSize = input.string("Small", "Text Size", options = ["Tiny", "Small", "Normal"], group = dashG)
-dashBg   = input.color(#1e222d, "Background", inline = "dc", group = dashG)
-dashAcc  = input.color(#f5d142, "Accent",     inline = "dc", group = dashG)
-txtCol   = input.color(#d1d4dc, "Text",       inline = "dc", group = dashG)
+lightBg  = input.bool(false, "Light Chart Background", group = dashG, tooltip = "Switches the dashboard to dark text on a light panel.")
+dashAcc  = input.color(#f2c94c, "Accent", group = dashG)
 
 //-----------------------------------------------------------------------------}
 //Types
@@ -172,15 +175,27 @@ type Factor
 
 type Session
     string name
+    string tz
     bool   on
     int    mins
+    int    startMin
+    int    nSlots
     color  col
-    array<float> rng
-    array<float> up
-    array<float> dn
+    array<float>  rng
+    array<float>  up
+    array<float>  dn
+    array<int>    hiSlot
+    array<int>    loSlot
+    matrix<float> mUp
+    matrix<float> mDn
+    array<float>  curUp
+    array<float>  curDn
     float  o
     float  h
     float  l
+    int    startT
+    int    hiT
+    int    loT
     bool   inS
     bool   first
     bool   ended
@@ -188,7 +203,9 @@ type Session
 //-----------------------------------------------------------------------------}
 //Functions
 //-----------------------------------------------------------------------------{
-txtDim = color.new(txtCol, 50)
+dashBg = lightBg ? color.new(#ffffff, 8) : color.new(#11151c, 8)
+txtCol = lightBg ? #1e222d : #e6e8ec
+txtDim = lightBg ? #6b7280 : #9aa0a6
 upCol  = greedCol
 dnCol  = fearCol
 
@@ -217,6 +234,9 @@ f_fmt(float x, string f) =>
 
 f_sgn(float x, string f) =>
     na(x) ? "–" : (x >= 0 ? "+" : "") + str.tostring(x, f)
+
+f_pm(float u, float d) =>
+    "+" + f_fmt(u, "0.0") + " / −" + f_fmt(d, "0.0")
 
 f_num(float s, float w) =>
     na(s) or na(w) or w <= 0 ? 0.0 : s * w
@@ -262,33 +282,107 @@ f_sessMinutes(string s) =>
     int mins = (h2 * 60 + m2) - (h1 * 60 + m1)
     mins <= 0 ? mins + 1440 : mins
 
+f_sessStartMin(string s) =>
+    int(str.tonumber(str.substring(s, 0, 2))) * 60 + int(str.tonumber(str.substring(s, 2, 4)))
+
+f_clock(int totalMin) =>
+    int m  = totalMin % 1440
+    int hh = int(math.floor(m / 60.0))
+    int mm = m % 60
+    (hh < 10 ? "0" : "") + str.tostring(hh) + ":" + (mm < 10 ? "0" : "") + str.tostring(mm)
+
+f_dur(int mins) =>
+    na(mins) ? "–" : mins < 60 ? str.tostring(mins) + " min" : str.tostring(int(math.floor(mins / 60.0))) + " h " + (mins % 60 < 10 ? "0" : "") + str.tostring(mins % 60)
+
+f_mode(array<int> a, int n) =>
+    int best  = -1
+    int bestC = 0
+    int sz    = array.size(a)
+    if sz > 0
+        for k = 0 to n - 1
+            int c = 0
+            for i = 0 to sz - 1
+                if array.get(a, i) == k
+                    c += 1
+            if c > bestC
+                bestC := c
+                best  := k
+    [best, bestC, sz]
+
 f_pos(string p) =>
     p == "Top Right" ? position.top_right : p == "Top Left" ? position.top_left : p == "Bottom Right" ? position.bottom_right :
      p == "Bottom Left" ? position.bottom_left : p == "Middle Right" ? position.middle_right : position.middle_left
 
+f_newSession(string name, bool on, string sess, string tz, color col) =>
+    int mins = f_sessMinutes(sess)
+    int n    = math.max(1, math.min(96, int(math.ceil(mins * 1.0 / sliceMin))))
+    Session.new(name = name, tz = tz, on = on, mins = mins, startMin = f_sessStartMin(sess), nSlots = n, col = col,
+     rng = array.new<float>(), up = array.new<float>(), dn = array.new<float>(), hiSlot = array.new<int>(), loSlot = array.new<int>(),
+     mUp = matrix.new<float>(0, n), mDn = matrix.new<float>(0, n), curUp = array.new<float>(n), curDn = array.new<float>(n))
+
 //-----------------------------------------------------------------------------}
 //Methods
 //-----------------------------------------------------------------------------{
+method slotAt(Session s, int t) =>
+    math.min(s.nSlots - 1, math.max(0, int(math.floor((t - s.startT) / 60000.0 / sliceMin))))
+
+method slotForMinutes(Session s, int minutes) =>
+    math.min(s.nSlots - 1, math.max(0, int(math.ceil(minutes * 1.0 / sliceMin)) - 1))
+
+method slotClock(Session s, int k) =>
+    f_clock(s.startMin + k * sliceMin) + "–" + f_clock(s.startMin + (k + 1) * sliceMin)
+
 method update(Session s, bool inNow) =>
     bool prev = s.inS
     s.first := inNow and not prev
     s.ended := (not inNow) and prev
     s.inS   := inNow
     if s.first
-        s.o := open
-        s.h := high
-        s.l := low
+        s.o      := open
+        s.h      := high
+        s.l      := low
+        s.startT := time
+        s.hiT    := time
+        s.loT    := time
+        array.fill(s.curUp, na)
+        array.fill(s.curDn, na)
     else if inNow
-        s.h := math.max(s.h, high)
-        s.l := math.min(s.l, low)
+        if high > s.h
+            s.h   := high
+            s.hiT := time
+        if low < s.l
+            s.l   := low
+            s.loT := time
+    if inNow and not na(s.o)
+        int   k = s.slotAt(time)
+        float u = s.h - s.o
+        float d = s.o - s.l
+        for j = 0 to k
+            if na(array.get(s.curUp, j)) or j == k
+                array.set(s.curUp, j, u)
+                array.set(s.curDn, j, d)
     if s.ended and not na(s.o)
+        float u = s.h - s.o
+        float d = s.o - s.l
+        for j = 0 to s.nSlots - 1
+            if na(array.get(s.curUp, j))
+                array.set(s.curUp, j, u)
+                array.set(s.curDn, j, d)
         array.push(s.rng, s.h - s.l)
-        array.push(s.up,  s.h - s.o)
-        array.push(s.dn,  s.o - s.l)
+        array.push(s.up,  u)
+        array.push(s.dn,  d)
+        array.push(s.hiSlot, s.slotAt(s.hiT))
+        array.push(s.loSlot, s.slotAt(s.loT))
+        matrix.add_row(s.mUp, matrix.rows(s.mUp), array.copy(s.curUp))
+        matrix.add_row(s.mDn, matrix.rows(s.mDn), array.copy(s.curDn))
         if array.size(s.rng) > statLen
             array.shift(s.rng)
             array.shift(s.up)
             array.shift(s.dn)
+            array.shift(s.hiSlot)
+            array.shift(s.loSlot)
+            matrix.remove_row(s.mUp, 0)
+            matrix.remove_row(s.mDn, 0)
     s
 
 method stats(Session s) =>
@@ -304,27 +398,46 @@ method stats(Session s) =>
     float xDn  = n > 0 ? array.max(s.dn) : na
     [n, mean, med, sd, mx, p90, mUp, xUp, mDn, xDn]
 
+// Typical excursion from the session open at time slice k: [mean up, p90 up, mean down, p90 down]
+method profile(Session s, int k) =>
+    int rows = matrix.rows(s.mUp)
+    int kk   = nz(k, -1)
+    float eU = na
+    float pU = na
+    float eD = na
+    float pD = na
+    if rows > 0 and kk >= 0 and kk < s.nSlots
+        array<float> cu = matrix.col(s.mUp, kk)
+        array<float> cd = matrix.col(s.mDn, kk)
+        eU := array.avg(cu)
+        pU := array.percentile_nearest_rank(cu, 90)
+        eD := array.avg(cd)
+        pD := array.percentile_nearest_rank(cd, 90)
+    [eU, pU, eD, pD]
+
 method liveRange(Session s) =>
     s.inS ? s.h - s.l : na
 
-var array<box>   projBoxes  = array.new<box>()
+method elapsed(Session s) =>
+    s.inS ? int(math.floor((time - s.startT) / 60000.0)) : na
+
 var array<line>  projLines  = array.new<line>()
 var array<label> projLabels = array.new<label>()
 
 method draw(Session s, float scale) =>
     [n, mean, med, sd, mx, p90, mUp, xUp, mDn, xDn] = s.stats()
     if n > 0
-        int   x2 = time + s.mins * 60000
-        float eu = mUp * scale
-        float ed = mDn * scale
-        array.push(projBoxes,  box.new(time, s.o + eu, x2, s.o - ed, xloc = xloc.bar_time, border_color = color.new(s.col, 30), bgcolor = color.new(s.col, 88), force_overlay = true))
-        array.push(projLines,  line.new(time, s.o, x2, s.o, xloc = xloc.bar_time, color = color.new(s.col, 40), style = line.style_dashed, force_overlay = true))
-        array.push(projLines,  line.new(time, s.o + xUp, x2, s.o + xUp, xloc = xloc.bar_time, color = s.col, style = line.style_dotted, force_overlay = true))
-        array.push(projLines,  line.new(time, s.o - xDn, x2, s.o - xDn, xloc = xloc.bar_time, color = s.col, style = line.style_dotted, force_overlay = true))
-        string txt = s.name + "\nexp  +" + f_fmt(eu, "0.0") + " / −" + f_fmt(ed, "0.0") + "\nmax  +" + f_fmt(xUp, "0.0") + " / −" + f_fmt(xDn, "0.0") + "\nrange Ø " + f_fmt(mean * scale, "0.0") + " · p90 " + f_fmt(p90, "0.0")
-        array.push(projLabels, label.new(x2, s.o + xUp, txt, xloc = xloc.bar_time, style = label.style_label_left, color = color.new(s.col, 60), textcolor = color.white, size = size.small, textalign = text.align_left, force_overlay = true))
-        while array.size(projBoxes) > keepSess * 3
-            box.delete(array.shift(projBoxes))
+        int x2 = time + s.mins * 60000
+        array.push(projLines, line.new(time, s.o, x2, s.o, xloc = xloc.bar_time, color = color.new(s.col, 30), style = line.style_dashed, width = 1, force_overlay = true))
+        array.push(projLines, line.new(time, s.o + xUp, x2, s.o + xUp, xloc = xloc.bar_time, color = color.new(s.col, 20), style = line.style_dotted, force_overlay = true))
+        array.push(projLines, line.new(time, s.o - xDn, x2, s.o - xDn, xloc = xloc.bar_time, color = color.new(s.col, 20), style = line.style_dotted, force_overlay = true))
+        [hk, hc, hn] = f_mode(s.hiSlot, s.nSlots)
+        [lk, lc, ln] = f_mode(s.loSlot, s.nSlots)
+        string txt = s.name + " · open " + f_fmt(s.o, "0.0") +
+             "\nexp " + f_pm(mUp * scale, mDn * scale) + " · range Ø " + f_fmt(mean * scale, "0.0") + " · p90 " + f_fmt(p90, "0.0") +
+             "\nmax " + f_pm(xUp, xDn) +
+             "\nhigh typ. " + (hk >= 0 ? s.slotClock(hk) : "–") + " · low typ. " + (lk >= 0 ? s.slotClock(lk) : "–")
+        array.push(projLabels, label.new(x2, s.o + xUp, txt, xloc = xloc.bar_time, style = label.style_label_left, color = color.new(s.col, 55), textcolor = lightBg ? #1e222d : #ffffff, size = size.small, textalign = text.align_left, force_overlay = true))
         while array.size(projLines) > keepSess * 9
             line.delete(array.shift(projLines))
         while array.size(projLabels) > keepSess * 3
@@ -431,10 +544,10 @@ todayPct = todayRng / adr * 100.0
 //-----------------------------------------------------------------------------}
 //Sessions
 //-----------------------------------------------------------------------------{
-var Session asia = Session.new("Asia",     asiaOn, f_sessMinutes(asiaSess), asiaCol, array.new<float>(), array.new<float>(), array.new<float>())
-var Session lon  = Session.new("London",   lonOn,  f_sessMinutes(lonSess),  lonCol,  array.new<float>(), array.new<float>(), array.new<float>())
-var Session ny   = Session.new("New York", nyOn,   f_sessMinutes(nySess),   nyCol,   array.new<float>(), array.new<float>(), array.new<float>())
-var Session none = Session.new("–",        false,  0, neutCol, array.new<float>(), array.new<float>(), array.new<float>())
+var Session asia = f_newSession("Asia",     asiaOn, asiaSess, asiaTz, asiaCol)
+var Session lon  = f_newSession("London",   lonOn,  lonSess,  lonTz,  lonCol)
+var Session ny   = f_newSession("New York", nyOn,   nySess,   nyTz,   nyCol)
+var Session none = f_newSession("–",        false,  "0000-0001", "UTC", neutCol)
 
 intraday = timeframe.isintraday
 inAsia   = asiaOn and intraday and not na(time(timeframe.period, asiaSess, asiaTz))
@@ -479,8 +592,19 @@ nxDn    = nxMDn * volScale
 curRng  = cur.liveRange()
 curExp  = cuMean * volScale
 curUsed = curRng / curExp * 100.0
+curEl   = cur.elapsed()
 exceed  = curId >= 0 and not na(curExp) and curRng > curExp
 exceedP = curId >= 0 and not na(cuP90) and curRng > cuP90
+
+// Live cone: typical and p90 excursion from the session open at the elapsed time slice
+liveK = curId >= 0 ? cur.slotAt(time) : -1
+[kU, kPU, kD, kPD] = cur.profile(liveK)
+coneOn  = showCone and curId >= 0 and not na(kU)
+coneHi  = coneOn ? cur.o + kU * volScale : na
+coneLo  = coneOn ? cur.o - kD * volScale : na
+coneHi9 = coneOn ? cur.o + kPU : na
+coneLo9 = coneOn ? cur.o - kPD : na
+coneCol = curId >= 0 ? cur.col : neutCol
 
 if drawProj and intraday
     if asia.first
@@ -493,9 +617,9 @@ if drawProj and intraday
 //-----------------------------------------------------------------------------}
 //Plots
 //-----------------------------------------------------------------------------{
-pScore = plot(score, "Greed / Fear", scoreCol, 2)
+pScore = plot(score, "Greed / Fear", scoreCol, lineW)
 pMid   = plot(50, "Mid", display = display.none, editable = false)
-fill(pScore, pMid, 100, 0, showFill ? color.new(greedCol, 55) : na, showFill ? color.new(fearCol, 55) : na, "Gradient fill")
+fill(pScore, pMid, 100, 0, showFill ? color.new(greedCol, 60) : na, showFill ? color.new(fearCol, 60) : na, "Gradient fill")
 
 plot(sRsi,  "RSI sub-score",     display = display.data_window)
 plot(sFast, "Fast MA sub-score", display = display.data_window)
@@ -512,27 +636,36 @@ plot(fc8.score, "Factor 8 sub-score", display = display.data_window)
 plot(nxExp,  "Next session expected range", display = display.data_window)
 plot(curRng, "Current session range",       display = display.data_window)
 
-h25 = hline(25, "Extreme Fear",  color.new(fearCol, 50),  hline.style_dashed)
-h45 = hline(45, "Caution",       color.new(neutCol, 80),  hline.style_dotted)
-h50 = hline(50, "Neutral",       color.new(neutCol, 60),  hline.style_dotted)
-h55 = hline(55, "Greed",         color.new(neutCol, 80),  hline.style_dotted)
-h75 = hline(75, "Extreme Greed", color.new(greedCol, 50), hline.style_dashed)
+// Range cone on the price chart
+pCH  = plot(coneHi,  "Cone expected high", color.new(coneCol, 0),  2, plot.style_linebr, force_overlay = true)
+pCL  = plot(coneLo,  "Cone expected low",  color.new(coneCol, 0),  2, plot.style_linebr, force_overlay = true)
+pCH9 = plot(coneHi9, "Cone p90 high",      color.new(coneCol, 45), 1, plot.style_linebr, force_overlay = true)
+pCL9 = plot(coneLo9, "Cone p90 low",       color.new(coneCol, 45), 1, plot.style_linebr, force_overlay = true)
+fill(pCH, pCL,   color = color.new(coneCol, 82), title = "Cone expected", force_overlay = true)
+fill(pCH9, pCH,  color = color.new(coneCol, 93), title = "Cone p90 upper", force_overlay = true)
+fill(pCL, pCL9,  color = color.new(coneCol, 93), title = "Cone p90 lower", force_overlay = true)
+
+h25 = hline(25, "Extreme Fear",  color.new(fearCol, 40),  hline.style_dashed)
+h45 = hline(45, "Caution",       color.new(neutCol, 75),  hline.style_dotted)
+h50 = hline(50, "Neutral",       color.new(neutCol, 55),  hline.style_dotted)
+h55 = hline(55, "Greed",         color.new(neutCol, 75),  hline.style_dotted)
+h75 = hline(75, "Extreme Greed", color.new(greedCol, 40), hline.style_dashed)
 h0  = hline(0,   "", color.new(neutCol, 100))
 h100 = hline(100, "", color.new(neutCol, 100))
-fill(h0,  h25,  color.new(fearCol, 90),  "Extreme Fear zone")
-fill(h75, h100, color.new(greedCol, 90), "Extreme Greed zone")
+fill(h0,  h25,  color.new(fearCol, 86),  "Extreme Fear zone")
+fill(h75, h100, color.new(greedCol, 86), "Extreme Greed zone")
 
-bgcolor(showBg and score < 25 ? color.new(fearCol, 88) : showBg and score > 75 ? color.new(greedCol, 88) : na, title = "Extreme background")
+bgcolor(showBg and score < 25 ? color.new(fearCol, 85) : showBg and score > 75 ? color.new(greedCol, 85) : na, title = "Extreme background")
 
 xFearIn   = ta.crossunder(score, 25)
 xFearOut  = ta.crossover(score, 25)
 xGreedIn  = ta.crossover(score, 75)
 xGreedOut = ta.crossunder(score, 75)
 
-plotshape(showShape and xFearIn   ? score : na, "Enter Extreme Fear",  shape.triangledown, location.absolute, fearCol,  size = size.tiny)
-plotshape(showShape and xFearOut  ? score : na, "Exit Extreme Fear",   shape.triangleup,   location.absolute, greedCol, size = size.tiny)
-plotshape(showShape and xGreedIn  ? score : na, "Enter Extreme Greed", shape.triangleup,   location.absolute, greedCol, size = size.tiny)
-plotshape(showShape and xGreedOut ? score : na, "Exit Extreme Greed",  shape.triangledown, location.absolute, fearCol,  size = size.tiny)
+plotshape(showShape and xFearIn   ? score : na, "Enter Extreme Fear",  shape.triangledown, location.absolute, fearCol,  size = size.small)
+plotshape(showShape and xFearOut  ? score : na, "Exit Extreme Fear",   shape.triangleup,   location.absolute, greedCol, size = size.small)
+plotshape(showShape and xGreedIn  ? score : na, "Enter Extreme Greed", shape.triangleup,   location.absolute, greedCol, size = size.small)
+plotshape(showShape and xGreedOut ? score : na, "Exit Extreme Greed",  shape.triangledown, location.absolute, fearCol,  size = size.small)
 
 //-----------------------------------------------------------------------------}
 //Alerts
@@ -544,20 +677,24 @@ alertcondition(score > 75,  "Extreme Greed (state)",  "Gold G/F: score above 75 
 alertcondition(xFearOut or xGreedOut, "Exit extreme zone", "Gold G/F: score left an extreme zone on {{ticker}} {{interval}}")
 alertcondition(exceed and not exceed[1],   "Session range > expected", "Gold G/F: session range exceeded the vol-adjusted expected range on {{ticker}} {{interval}}")
 alertcondition(exceedP and not exceedP[1], "Session range > p90",      "Gold G/F: session range exceeded the p90 of the window on {{ticker}} {{interval}}")
+coneBreakUp = coneOn and close > coneHi9
+coneBreakDn = coneOn and close < coneLo9
+alertcondition(coneBreakUp and not coneBreakUp[1], "Price above p90 cone", "Gold G/F: price moved above the p90 cone of the session on {{ticker}} {{interval}}")
+alertcondition(coneBreakDn and not coneBreakDn[1], "Price below p90 cone", "Gold G/F: price moved below the p90 cone of the session on {{ticker}} {{interval}}")
 
 //-----------------------------------------------------------------------------}
 //Dashboard
 //-----------------------------------------------------------------------------{
 tsz = dashSize == "Tiny" ? size.tiny : dashSize == "Normal" ? size.normal : size.small
 
-var table d1 = table.new(f_pos(posD1), 6, 16, bgcolor = dashBg, frame_color = color.new(dashAcc, 60), frame_width = 1, border_color = color.new(txtCol, 85), border_width = 1)
-var table d2 = table.new(f_pos(posD2), 3, 18, bgcolor = dashBg, frame_color = color.new(dashAcc, 60), frame_width = 1, border_color = color.new(txtCol, 85), border_width = 1)
+var table d1 = table.new(f_pos(posD1), 6, 16, bgcolor = dashBg, frame_color = color.new(dashAcc, 50), frame_width = 1, border_color = color.new(txtCol, 88), border_width = 1)
+var table d2 = table.new(f_pos(posD2), 3, 26, bgcolor = dashBg, frame_color = color.new(dashAcc, 50), frame_width = 1, border_color = color.new(txtCol, 88), border_width = 1)
 
 f_cell(table t, int c, int r, string s, color tc, color bg, string al) =>
     table.cell(t, c, r, s, text_color = tc, text_size = tsz, bgcolor = bg, text_halign = al)
 
 f_head(table t, int r, string a, string b, string c, string d, string e, string f) =>
-    color bg = color.new(dashAcc, 80)
+    color bg = color.new(dashAcc, 78)
     f_cell(t, 0, r, a, dashAcc, bg, text.align_left)
     f_cell(t, 1, r, b, txtCol, bg, text.align_left)
     f_cell(t, 2, r, c, txtCol, bg, text.align_right)
@@ -571,7 +708,7 @@ f_core(int r, string name, string val, float s) =>
     f_cell(d1, 2, r, val, txtCol, color(na), text.align_right)
     f_cell(d1, 3, r, "", txtCol, color(na), text.align_right)
     f_cell(d1, 4, r, "", txtCol, color(na), text.align_right)
-    f_cell(d1, 5, r, f_fmt(s, "0"), color.white, na(s) ? color(na) : color.new(f_zoneCol(s), 40), text.align_center)
+    f_cell(d1, 5, r, f_fmt(s, "0"), color.white, na(s) ? color(na) : color.new(f_zoneCol(s), 35), text.align_center)
 
 method row(Factor f, int r) =>
     string arrow = f.sign == "Direct" ? "↑" : f.sign == "Inverse" ? "↓" : "⇅"
@@ -583,7 +720,7 @@ method row(Factor f, int r) =>
     f_cell(d1, 2, r, f.on ? chg : "–", tc, color(na), text.align_right)
     f_cell(d1, 3, r, f.on ? f_sgn(f.dayPct, "0.00") + " %" : "–", dc, color(na), text.align_right)
     f_cell(d1, 4, r, f.on ? "r " + f_fmt(f.corr, "0.00") + " · w " + f_fmt(f.wEff, "0.0") : "–", txtDim, color(na), text.align_right)
-    f_cell(d1, 5, r, f.on ? f_fmt(f.score, "0") : "–", color.white, f.on and not na(f.score) ? color.new(f_zoneCol(f.score), 40) : color(na), text.align_center)
+    f_cell(d1, 5, r, f.on ? f_fmt(f.score, "0") : "–", color.white, f.on and not na(f.score) ? color.new(f_zoneCol(f.score), 35) : color(na), text.align_center)
 
 f_vrow(int r, string a, string b, string c, color ca) =>
     f_cell(d2, 0, r, a, ca, color(na), text.align_left)
@@ -591,7 +728,7 @@ f_vrow(int r, string a, string b, string c, color ca) =>
     f_cell(d2, 2, r, c, txtDim, color(na), text.align_left)
 
 f_vhead(int r, string a, string b, string c) =>
-    color bg = color.new(dashAcc, 80)
+    color bg = color.new(dashAcc, 78)
     f_cell(d2, 0, r, a, dashAcc, bg, text.align_left)
     f_cell(d2, 1, r, b, txtCol, bg, text.align_right)
     f_cell(d2, 2, r, c, txtCol, bg, text.align_left)
@@ -605,16 +742,25 @@ method srow(Session s, int r) =>
     f_cell(d2, 1, r, b, txtCol, color(na), text.align_right)
     f_cell(d2, 2, r, c, txtDim, color(na), text.align_left)
 
+// Path in time: typical and p90 excursion from the open of session s after `minutes`
+method prow(Session s, int r, int minutes, float scale, float ref) =>
+    int mins = math.min(minutes, s.mins)
+    [eU, pU, eD, pD] = s.profile(s.slotForMinutes(mins))
+    string a = (mins == s.mins ? "koniec (" : "+ ") + f_dur(mins) + (mins == s.mins ? ")" : "")
+    string b = na(eU) ? "–" : f_pm(eU * scale, eD * scale) + " $"
+    string c = na(eU) ? "–" : "hi " + f_fmt(ref + eU * scale, "0.0") + " / lo " + f_fmt(ref - eD * scale, "0.0") + "   p90 " + f_pm(pU, pD)
+    f_vrow(r, a, b, c, txtCol)
+
 isGold = str.contains(syminfo.ticker, "XAU") or str.contains(syminfo.ticker, "GOLD") or str.startswith(syminfo.ticker, "GC")
 
 if showD1 and barstate.islast
     f_head(d1, 0, "Gold G/F PRO", "Mini graf (" + str.tostring(sparkLen) + " b)", "Δ " + str.tostring(chgLen) + " b", "Dnes", "r(zlato) · váha", "Skóre")
-    f_cell(d1, 0, 1, "SKÓRE", color.white, color(na), text.align_left)
+    f_cell(d1, 0, 1, "SKÓRE", txtCol, color(na), text.align_left)
     f_cell(d1, 1, 1, scoreSp, scoreCol, color(na), text.align_left)
     f_cell(d1, 2, 1, isOverride ? f_zoneName(score) + " (manual)" : f_zoneName(score), scoreCol, color(na), text.align_right)
     f_cell(d1, 3, 1, f_sgn(score - score[1], "0.0"), txtDim, color(na), text.align_right)
     f_cell(d1, 4, 1, "Σw " + f_fmt(den, "0.0"), txtDim, color(na), text.align_right)
-    f_cell(d1, 5, 1, f_fmt(score, "0.0"), color.black, scoreCol, text.align_center)
+    f_cell(d1, 5, 1, f_fmt(score, "0.0"), #11151c, scoreCol, text.align_center)
     f_core(2, "RSI(" + str.tostring(rsiLen) + ")",  f_fmt(rsiVal, "0.0"), sRsi)
     f_core(3, "Dist SMA" + str.tostring(fastLen),   f_sgn(dFast, "0.00") + " %", sFast)
     f_core(4, "Dist SMA" + str.tostring(slowLen),   f_sgn(dSlow, "0.00") + " %", sSlow)
@@ -636,6 +782,11 @@ if showD1 and barstate.islast
     f_cell(d1, 5, 15, "", txtCol, color(na), text.align_center)
 
 if showD2 and barstate.islast
+    [hk, hc, hn] = f_mode(nxt.hiSlot, nxt.nSlots)
+    [lk, lc, ln] = f_mode(nxt.loSlot, nxt.nSlots)
+    [chk, chc, chn] = f_mode(cur.hiSlot, cur.nSlots)
+    [clk, clc, cln] = f_mode(cur.loSlot, cur.nSlots)
+    float remExp = math.max(0.0, curExp - curRng)
     f_vhead(0, "VOLATILITA " + str.tostring(statLen) + " D", "Hodnota", "Poznámka")
     f_vrow(1, "ADR priemer",      f_fmt(adr, "0.0") + " $",          "medián " + f_fmt(adrMed, "0.0") + " · σ " + f_fmt(adrSd, "0.0") + " · max " + f_fmt(adrMax, "0.0"), txtCol)
     f_vrow(2, "Realizovaná vol",  f_fmt(rvolAnn, "0.0") + " % p.a.", "1σ deň ≈ " + f_fmt(sigmaUsd, "0.0") + " $ (" + f_fmt(rvol * 100.0, "0.00") + " %)", txtCol)
@@ -646,20 +797,26 @@ if showD2 and barstate.islast
     asia.srow(7)
     lon.srow(8)
     ny.srow(9)
-    f_vhead(10, "AKTUÁLNA SEANSA", curId >= 0 ? cur.name : "mimo seansy", intraday ? "" : "seansy len na intraday grafe")
-    f_vrow(11, "Range zatiaľ", curId >= 0 ? f_fmt(curRng, "0.0") + " $" : "–", curId >= 0 ? f_fmt(curUsed, "0") + " % očakávaného (" + f_fmt(curExp, "0.0") + ") · open " + f_fmt(cur.o, "0.0") : "–", exceedP ? fearCol : exceed ? color.orange : txtCol)
-    f_vhead(12, "ĎALŠIA SEANSA", nxt.name, nxN > 0 ? "n = " + str.tostring(nxN) : "bez dát")
-    f_vrow(13, "Oč. range",       f_fmt(nxExp, "0.0") + " $", "± σ " + f_fmt(nxSd, "0.0") + " · medián " + f_fmt(nxMed, "0.0") + " · p90 " + f_fmt(nxP90, "0.0") + " · max " + f_fmt(nxMax, "0.0"), txtCol)
-    f_vrow(14, "Oč. high / low",  f_fmt(close + nxUp, "0.0") + " / " + f_fmt(close - nxDn, "0.0"), "od aktuálnej ceny +" + f_fmt(nxUp, "0.0") + " / −" + f_fmt(nxDn, "0.0") + " $", txtCol)
-    f_vrow(15, "Max odchýlka",    "+" + f_fmt(nxXUp, "0.0") + " / −" + f_fmt(nxXDn, "0.0") + " $", "high " + f_fmt(close + nxXUp, "0.0") + " / low " + f_fmt(close - nxXDn, "0.0"), color.orange)
-    f_vrow(16, "Pásmo range",     f_fmt(nxExp - nxSd, "0.0") + " – " + f_fmt(nxExp + nxSd, "0.0") + " $", "očakávaný ± 1σ (vol-adjusted)", txtCol)
-    f_vrow(17, "Pozn.", "štatistika, nie predpoveď", "pri FOMC / NFP / CPI rátaj s p90 až max", txtDim)
-
-//-----------------------------------------------------------------------------}
+    f_vhead(10, "AKTUÁLNA SEANSA", curId >= 0 ? cur.name + " · " + f_dur(curEl) : "mimo seansy", intraday ? (curId >= 0 ? "open " + f_fmt(cur.o, "0.0") : "") : "seansy len na intraday grafe")
+    f_vrow(11, "Range zatiaľ", curId >= 0 ? f_fmt(curRng, "0.0") + " $ (" + f_fmt(curUsed, "0") + " %)" : "–", curId >= 0 ? "z očakávaných " + f_fmt(curExp, "0.0") + " · zostáva typicky " + f_fmt(remExp, "0.0") + " $" : "–", exceedP ? fearCol : exceed ? color.orange : txtCol)
+    f_vrow(12, "Teraz typicky", curId >= 0 and not na(kU) ? f_pm(kU * volScale, kD * volScale) + " $" : "–", curId >= 0 ? "máme " + f_pm(cur.h - cur.o, cur.o - cur.l) + " · p90 " + f_pm(kPU, kPD) : "–", txtCol)
+    f_vrow(13, "Typický čas high / low", curId >= 0 and chk >= 0 ? cur.slotClock(chk) : "–", curId >= 0 and clk >= 0 ? "low " + cur.slotClock(clk) + " (" + cur.tz + ", " + str.tostring(chc) + "+" + str.tostring(clc) + " z " + str.tostring(chn) + ")" : "–", txtCol)
+    f_vhead(14, "ĎALŠIA SEANSA", nxt.name, nxN > 0 ? "n = " + str.tostring(nxN) + " · " + f_clock(nxt.startMin) + " " + nxt.tz : "bez dát")
+    f_vrow(15, "Oč. range",       f_fmt(nxExp, "0.0") + " $", "± σ " + f_fmt(nxSd, "0.0") + " · medián " + f_fmt(nxMed, "0.0") + " · p90 " + f_fmt(nxP90, "0.0") + " · max " + f_fmt(nxMax, "0.0"), txtCol)
+    f_vrow(16, "Oč. high / low",  f_fmt(close + nxUp, "0.0") + " / " + f_fmt(close - nxDn, "0.0"), "od aktuálnej ceny " + f_pm(nxUp, nxDn) + " $", txtCol)
+    f_vrow(17, "Max odchýlka",    f_pm(nxXUp, nxXDn) + " $", "high " + f_fmt(close + nxXUp, "0.0") + " / low " + f_fmt(close - nxXDn, "0.0"), color.orange)
+    f_vhead(18, "CESTA V ČASE", "typicky od open", "úrovne od aktuálnej ceny · p90")
+    nxt.prow(19, 30,  volScale, close)
+    nxt.prow(20, 60,  volScale, close)
+    nxt.prow(21, 120, volScale, close)
+    nxt.prow(22, 240, volScale, close)
+    nxt.prow(23, nxt.mins, volScale, close)
+    f_vrow(24, "Typický čas high / low", hk >= 0 ? nxt.slotClock(hk) : "–", lk >= 0 ? "low " + nxt.slotClock(lk) + " (" + nxt.tz + ", " + str.tostring(hc) + "+" + str.tostring(lc) + " z " + str.tostring(hn) + ")" : "–", txtCol)
+    f_vrow(25, "Pozn.", "štatistika, nie predpoveď", "pri FOMC / NFP / CPI rátaj s p90 až max · kužeľ sa škáluje vol scale, p90 nie", txtDim)
 
 //-----------------------------------------------------------------------------}
 //End of file: the code was pasted completely, clear the "KÓD JE NEÚPLNÝ" warning
 //-----------------------------------------------------------------------------{
 if barstate.islast
     table.cell(tWarn, 0, 0, "", bgcolor = color.new(color.black, 100))
-// KONIEC SÚBORU – Gold G/F PRO v3
+// KONIEC SÚBORU – Gold G/F PRO v4
