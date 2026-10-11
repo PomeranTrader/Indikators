@@ -1,0 +1,204 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0
+// Gold Greed vs Fear (XAUUSD) — composite 0–100 sentiment oscillator
+// Author: Pomeranian trader · built with Grok Bot · 2026-10-11
+//@version=6
+indicator("Gold Greed vs Fear (XAUUSD) · Pomeranian", shorttitle = "Gold G/F", overlay = false, precision = 1, max_labels_count = 50)
+
+grpCore   = "1) Core components"
+rsiLen    = input.int(14,  "RSI length",                       minval = 2,  group = grpCore)
+fastLen   = input.int(50,  "Fast SMA length",                  minval = 5,  group = grpCore)
+slowLen   = input.int(200, "Slow SMA length",                  minval = 20, group = grpCore)
+atrLen    = input.int(14,  "ATR length",                       minval = 2,  group = grpCore)
+atrAvgLen = input.int(100, "ATR average length (vol regime)",  minval = 10, group = grpCore)
+trendLen  = input.int(20,  "Direction EMA length (vol sign)",  minval = 2,  group = grpCore)
+
+grpNorm     = "2) Normalization"
+normMode    = input.string("Adaptive (z-score)", "Distance normalization", options = ["Adaptive (z-score)", "Fixed %"], group = grpNorm)
+normLen     = input.int(250,    "Z-score lookback (bars)",                         minval = 20,   group = grpNorm)
+zCap        = input.float(2.0,  "Z cap (|z| that maps to 0 / 100)",                minval = 0.5,  step = 0.1,  group = grpNorm)
+fixFast     = input.float(5.0,  "Fixed: % from fast SMA that maps to 0 / 100",     minval = 0.1,  step = 0.5,  group = grpNorm)
+fixSlow     = input.float(12.0, "Fixed: % from slow SMA that maps to 0 / 100",     minval = 0.1,  step = 0.5,  group = grpNorm)
+volCap      = input.float(1.8,  "ATR ratio where vol score saturates",             minval = 1.05, step = 0.05, group = grpNorm)
+volUpFactor = input.float(0.6,  "High vol in uptrend → greed factor (0–1)",        minval = 0.0,  maxval = 1.0, step = 0.05, group = grpNorm)
+calmPts     = input.float(10.0, "Low vol → max drift points toward trend",         minval = 0.0,  maxval = 50.0, group = grpNorm)
+
+grpMacro = "3) Macro (optional, inverse to gold)"
+useDxy   = input.bool(false, "Use DXY",   inline = "dxy", group = grpMacro)
+dxySym   = input.symbol("TVC:DXY",   "",  inline = "dxy", group = grpMacro)
+useYld   = input.bool(false, "Use US10Y", inline = "yld", group = grpMacro)
+yldSym   = input.symbol("TVC:US10Y", "",  inline = "yld", group = grpMacro)
+macroLen = input.int(20, "Macro change lookback (bars)", minval = 2, group = grpMacro)
+useCorr  = input.bool(true, "Scale macro weight by live inverse correlation", group = grpMacro)
+corrLen  = input.int(60, "Correlation length (bars)", minval = 10, group = grpMacro)
+
+grpSent          = "4) Sentiment (optional)"
+sentMode         = input.string("Off", "Sentiment mode", options = ["Off", "Blend crowd long %", "Override final score"], group = grpSent)
+sentimentLongPct = input.float(-1.0, "sentimentLongPct / manual 0–100 (-1 = na)", minval = -1.0, maxval = 100.0, step = 1.0, group = grpSent,
+     tooltip = "Paste crowd long % (e.g. Myfxbook XAUUSD long %) for blend mode, or any 0–100 value for override mode. -1 = not set (na).")
+
+grpW  = "5) Weights"
+wRsi  = input.float(30.0, "RSI",            minval = 0.0, group = grpW)
+wFast = input.float(15.0, "Dist fast SMA",  minval = 0.0, group = grpW)
+wSlow = input.float(15.0, "Dist slow SMA",  minval = 0.0, group = grpW)
+wVol  = input.float(15.0, "ATR regime",     minval = 0.0, group = grpW)
+wDxy  = input.float(10.0, "DXY",            minval = 0.0, group = grpW)
+wYld  = input.float(10.0, "US10Y",          minval = 0.0, group = grpW)
+wSent = input.float(15.0, "Sentiment",      minval = 0.0, group = grpW)
+
+grpVis    = "6) Visuals"
+smoothLen = input.int(3, "Final EMA smoothing (1 = off)", minval = 1, group = grpVis)
+showBg    = input.bool(true, "Background tint in extreme zones", group = grpVis)
+showShape = input.bool(true, "Shapes on 25 / 75 crosses",        group = grpVis)
+showTable = input.bool(true, "Show components table",            group = grpVis)
+tablePos  = input.string("Top right", "Table position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = grpVis)
+
+f_clamp(float x, float lo, float hi) =>
+    math.max(lo, math.min(hi, x))
+
+f_z(float src, int len) =>
+    m = ta.sma(src, len)
+    s = ta.stdev(src, len)
+    na(s) ? na : s > 0 ? (src - m) / s : 0.0
+
+f_zScore(float z) =>
+    50.0 + 50.0 * f_clamp(z / zCap, -1.0, 1.0)
+
+f_zoneColor(float x) =>
+    na(x) ? color.gray : x < 25 ? color.red : x < 45 ? color.orange : x < 55 ? color.gray : x < 75 ? color.lime : color.green
+
+f_zoneName(float x) =>
+    na(x) ? "–" : x < 25 ? "EXTRÉMNY STRACH" : x < 45 ? "OPATRNOSŤ" : x < 55 ? "NEUTRÁL" : x < 75 ? "CHAMTIVOSŤ" : "EXTRÉMNA CHAMTIVOSŤ"
+
+f_fmt(float x, string f) =>
+    na(x) ? "–" : str.tostring(x, f)
+
+f_sgn(float x) =>
+    na(x) ? "–" : (x >= 0 ? "+" : "") + str.tostring(x, "0.00")
+
+f_num(float s, float w) =>
+    na(s) or na(w) or w <= 0 ? 0.0 : s * w
+f_den(float s, float w) =>
+    na(s) or na(w) or w <= 0 ? 0.0 : w
+
+rsiVal = ta.rsi(close, rsiLen)
+sRsi   = rsiVal
+
+smaF     = ta.sma(close, fastLen)
+smaS     = ta.sma(close, slowLen)
+dFast    = (close - smaF) / smaF * 100.0
+dSlow    = (close - smaS) / smaS * 100.0
+zFast    = f_z(dFast, normLen)
+zSlow    = f_z(dSlow, normLen)
+adaptive = normMode == "Adaptive (z-score)"
+sFast    = adaptive ? f_zScore(zFast) : (na(dFast) ? na : 50.0 + 50.0 * f_clamp(dFast / fixFast, -1.0, 1.0))
+sSlow    = adaptive ? f_zScore(zSlow) : (na(dSlow) ? na : 50.0 + 50.0 * f_clamp(dSlow / fixSlow, -1.0, 1.0))
+
+atrVal    = ta.atr(atrLen)
+atrAvg    = ta.sma(atrVal, atrAvgLen)
+atrRatio  = atrVal / atrAvg
+dirEma    = ta.ema(close, trendLen)
+upTrend   = close >= dirEma
+volExcess = f_clamp((atrRatio - 1.0) / (volCap - 1.0), -1.0, 1.0)
+sVol = na(volExcess) ? na :
+     volExcess >= 0 ? (upTrend ? 50.0 + 50.0 * volExcess * volUpFactor : 50.0 - 50.0 * volExcess) :
+     50.0 + calmPts * (-volExcess) * (upTrend ? 1.0 : -1.0)
+
+dxyClose = request.security(dxySym, timeframe.period, close, lookahead = barmerge.lookahead_off)
+yldClose = request.security(yldSym, timeframe.period, close, lookahead = barmerge.lookahead_off)
+
+dxyChg = ta.roc(dxyClose, macroLen)
+yldChg = ta.change(yldClose, macroLen)
+zDxy   = f_z(dxyChg, normLen)
+zYld   = f_z(yldChg, normLen)
+
+goldRet = ta.roc(close, 1)
+corrDxy = ta.correlation(goldRet, ta.roc(dxyClose, 1), corrLen)
+corrYld = ta.correlation(goldRet, ta.change(yldClose), corrLen)
+
+sDxy = useDxy ? (na(zDxy) ? na : 100.0 - f_zScore(zDxy)) : na
+sYld = useYld ? (na(zYld) ? na : 100.0 - f_zScore(zYld)) : na
+
+wDxyEff = useCorr ? wDxy * math.max(0.0, -nz(corrDxy)) : wDxy
+wYldEff = useCorr ? wYld * math.max(0.0, -nz(corrYld)) : wYld
+
+sentVal = sentimentLongPct < 0 ? na : sentimentLongPct
+sSent   = sentMode == "Blend crowd long %" ? sentVal : na
+isOverride = sentMode == "Override final score" and not na(sentVal)
+
+num = f_num(sRsi, wRsi) + f_num(sFast, wFast) + f_num(sSlow, wSlow) + f_num(sVol, wVol) +
+     f_num(sDxy, wDxyEff) + f_num(sYld, wYldEff) + f_num(sSent, wSent)
+den = f_den(sRsi, wRsi) + f_den(sFast, wFast) + f_den(sSlow, wSlow) + f_den(sVol, wVol) +
+     f_den(sDxy, wDxyEff) + f_den(sYld, wYldEff) + f_den(sSent, wSent)
+raw      = den > 0 ? num / den : na
+smoothed = ta.ema(raw, smoothLen)
+score    = isOverride ? sentVal : smoothed
+
+plot(score, "Greed/Fear skóre", color = f_zoneColor(score), linewidth = 2)
+plot(sRsi,  "RSI skóre",       display = display.data_window)
+plot(sFast, "SMA fast skóre",  display = display.data_window)
+plot(sSlow, "SMA slow skóre",  display = display.data_window)
+plot(sVol,  "ATR skóre",       display = display.data_window)
+plot(sDxy,  "DXY skóre",       display = display.data_window)
+plot(sYld,  "US10Y skóre",     display = display.data_window)
+
+h0   = hline(0,   "0",   color = color.new(color.gray, 100))
+h25  = hline(25,  "25 Extreme Fear",  color = color.new(color.red, 40),   linestyle = hline.style_dashed)
+h45  = hline(45,  "45",  color = color.new(color.gray, 70), linestyle = hline.style_dotted)
+h50  = hline(50,  "50 Neutral",       color = color.new(color.gray, 50),  linestyle = hline.style_dotted)
+h55  = hline(55,  "55",  color = color.new(color.gray, 70), linestyle = hline.style_dotted)
+h75  = hline(75,  "75 Extreme Greed", color = color.new(color.green, 40), linestyle = hline.style_dashed)
+h100 = hline(100, "100", color = color.new(color.gray, 100))
+
+fill(h0,  h25,  color = color.new(color.red,    88), title = "Zóna Extreme Fear 0–25")
+fill(h25, h45,  color = color.new(color.orange, 92), title = "Zóna Caution 25–45")
+fill(h45, h55,  color = color.new(color.gray,   94), title = "Zóna Neutral 45–55")
+fill(h55, h75,  color = color.new(color.lime,   92), title = "Zóna Greed 55–75")
+fill(h75, h100, color = color.new(color.green,  88), title = "Zóna Extreme Greed 75–100")
+
+bgcolor(showBg and score < 25 ? color.new(color.red, 85) : showBg and score > 75 ? color.new(color.green, 85) : na, title = "Extreme background")
+
+xFearIn   = ta.crossunder(score, 25)
+xFearOut  = ta.crossover(score, 25)
+xGreedIn  = ta.crossover(score, 75)
+xGreedOut = ta.crossunder(score, 75)
+
+plotshape(showShape and xFearIn   ? score : na, title = "Vstup do Extreme Fear",   style = shape.triangledown, location = location.absolute, color = color.red,   size = size.tiny)
+plotshape(showShape and xFearOut  ? score : na, title = "Výstup z Extreme Fear",   style = shape.triangleup,   location = location.absolute, color = color.lime,  size = size.tiny)
+plotshape(showShape and xGreedIn  ? score : na, title = "Vstup do Extreme Greed",  style = shape.triangleup,   location = location.absolute, color = color.green, size = size.tiny)
+plotshape(showShape and xGreedOut ? score : na, title = "Výstup z Extreme Greed",  style = shape.triangledown, location = location.absolute, color = color.orange, size = size.tiny)
+
+alertcondition(xFearIn,     "Extreme Fear < 25 (cross)",   "Gold G/F: EXTREME FEAR — score crossed below 25 on {{ticker}} {{interval}}, score={{plot_0}}")
+alertcondition(xGreedIn,    "Extreme Greed > 75 (cross)",  "Gold G/F: EXTREME GREED — score crossed above 75 on {{ticker}} {{interval}}, score={{plot_0}}")
+alertcondition(score < 25,  "Extreme Fear < 25 (state)",   "Gold G/F: score < 25 (Extreme Fear) on {{ticker}} {{interval}}")
+alertcondition(score > 75,  "Extreme Greed > 75 (state)",  "Gold G/F: score > 75 (Extreme Greed) on {{ticker}} {{interval}}")
+alertcondition(xFearOut or xGreedOut, "Exit extreme zone", "Gold G/F: score left an extreme zone on {{ticker}} {{interval}}")
+
+if barstate.isconfirmed and xFearIn
+    alert("Gold G/F: EXTREME FEAR < 25 on " + syminfo.ticker + " " + timeframe.period + " · score " + str.tostring(score, "0.0"), alert.freq_once_per_bar_close)
+if barstate.isconfirmed and xGreedIn
+    alert("Gold G/F: EXTREME GREED > 75 on " + syminfo.ticker + " " + timeframe.period + " · score " + str.tostring(score, "0.0"), alert.freq_once_per_bar_close)
+
+f_pos(string p) =>
+    p == "Top right" ? position.top_right : p == "Bottom right" ? position.bottom_right : p == "Top left" ? position.top_left : position.bottom_left
+
+var table tbl = table.new(f_pos(tablePos), 3, 9, bgcolor = color.new(color.black, 25), frame_color = color.gray, frame_width = 1, border_color = color.new(color.gray, 60), border_width = 1)
+
+f_row(int r, string name, string val, float s) =>
+    table.cell(tbl, 0, r, name, text_color = color.white, text_size = size.small, text_halign = text.align_left)
+    table.cell(tbl, 1, r, val,  text_color = color.white, text_size = size.small)
+    table.cell(tbl, 2, r, f_fmt(s, "0"), text_color = color.white, text_size = size.small, bgcolor = na(s) ? na : color.new(f_zoneColor(s), 55))
+
+if showTable and barstate.islast
+    table.cell(tbl, 0, 0, "Gold G/F", text_color = color.yellow, text_size = size.small, text_halign = text.align_left)
+    table.cell(tbl, 1, 0, "Hodnota",  text_color = color.silver, text_size = size.small)
+    table.cell(tbl, 2, 0, "Skóre",    text_color = color.silver, text_size = size.small)
+    table.cell(tbl, 0, 1, "SKÓRE",    text_color = color.white, text_size = size.normal, text_halign = text.align_left)
+    table.cell(tbl, 1, 1, isOverride ? f_zoneName(score) + " (manual)" : f_zoneName(score), text_color = color.white, text_size = size.small)
+    table.cell(tbl, 2, 1, f_fmt(score, "0.0"), text_color = color.black, text_size = size.normal, bgcolor = f_zoneColor(score))
+    f_row(2, "RSI(" + str.tostring(rsiLen) + ")",        f_fmt(rsiVal, "0.0"), sRsi)
+    f_row(3, "Dist SMA" + str.tostring(fastLen),         f_sgn(dFast) + " %", sFast)
+    f_row(4, "Dist SMA" + str.tostring(slowLen),         f_sgn(dSlow) + " %", sSlow)
+    f_row(5, "ATR režim " + (upTrend ? "↑" : "↓"),       f_fmt(atrRatio, "0.00") + "x", sVol)
+    f_row(6, "DXY",   useDxy ? f_sgn(dxyChg) + " % · r " + f_fmt(corrDxy, "0.00") : "off", sDxy)
+    f_row(7, "US10Y", useYld ? f_sgn(yldChg) + " · r " + f_fmt(corrYld, "0.00") : "off", sYld)
+    f_row(8, "Sentiment", sentMode == "Off" ? "off" : na(sentVal) ? "na" : f_fmt(sentVal, "0") + (isOverride ? " (override)" : " % long"), sSent)

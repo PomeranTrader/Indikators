@@ -35,3 +35,46 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**. Zobrazí všetkých 158 
 Filter dátumu, typy signálov, minimálny ponor, režim „zvýrazniť iba hlboké“, režim štítkov (Plné / Kompaktné / Iba číslo / Skryť), veľkosti, pipy, lot pre prepočet, časová zóna, všetky farby a pozície tabuliek.
 
 Dáta pochádzajú z `gfx.db setup_metrics` (MAE strict fill), otvorené signály podľa stavu 2026-10-07. Symbol ✎ znamená, že čas postu bol upravený.
+
+## Gold Greed vs Fear – XAUUSD (`gold-greed-fear.pine`)
+
+TradingView indikátor (Pine Script v6) pre **XAUUSD**. Zložený oscilátor 0–100, ktorý v samostatnom paneli ukazuje, či je zlato v režime strachu alebo chamtivosti. Nižšie = strach, vyššie = chamtivosť.
+
+### Inštalácia
+1. Otvor graf **XAUUSD** (odporúčané H1 – D1) a dole klikni na **Pine Editor**.
+2. Zmaž obsah editora a vlož celý súbor `gold-greed-fear.pine`.
+3. Klikni na **Uložiť** a potom na **Pridať do grafu** (panel sa otvorí pod cenou).
+
+### Zóny skóre
+| Rozsah | Zóna | Farba |
+|---|---|---|
+| 0 – 25 | EXTRÉMNY STRACH | červená |
+| 25 – 45 | OPATRNOSŤ | oranžová |
+| 45 – 55 | NEUTRÁL | sivá |
+| 55 – 75 | CHAMTIVOSŤ | limetková |
+| 75 – 100 | EXTRÉMNA CHAMTIVOSŤ | zelená |
+
+### Z čoho sa skóre skladá (váhy sú nastaviteľné)
+| Komponent | Váha | Ako sa číta |
+|---|---|---|
+| RSI | 30 | priamo ako skóre 0–100 |
+| Vzdialenosť od rýchlej SMA | 15 | % od priemeru, normalizované z-skóre (alebo pevné %) |
+| Vzdialenosť od pomalej SMA | 15 | to isté pre dlhodobý priemer |
+| ATR režim | 15 | vysoká volatilita v poklese = strach, v raste = tlmená chamtivosť, kľud = drift v smere trendu |
+| DXY (voliteľné) | 10 | inverzne k zlatu, váha sa škáluje podľa živej zápornej korelácie |
+| US10Y (voliteľné) | 10 | inverzne k zlatu, rovnako škálovaná váha |
+| Sentiment (voliteľné) | 15 | ručne vložené % longov davu, alebo úplný override skóre |
+
+Komponenty s hodnotou `na` (napr. vypnuté makro) sa z váženého priemeru vypustia, takže skóre je vždy 0–100. Výsledok sa vyhladzuje EMA (štandardne 3, hodnota 1 = vypnuté).
+
+### Na grafe
+- Hlavná krivka skóre vo farbe zóny, vyplnené pásma zón a podfarbenie pozadia v extrémoch.
+- Trojuholníky pri prekrížení 25 a 75 (vstup/výstup z extrémnej zóny).
+- Tabuľka komponentov: hodnota a čiastkové skóre každého komponentu, celkové skóre a názov zóny.
+- Čiastkové skóre sú dostupné aj v Data Window.
+
+### Alerty
+Prekríženie pod 25 / nad 75, stav pod 25 / nad 75 a opustenie extrémnej zóny. Pri potvrdenej sviečke sa odošle aj `alert()` s tickerom, timeframom a skóre.
+
+### Nastavenia
+Dĺžky RSI, SMA, ATR a smerovej EMA; normalizácia (z-skóre s lookbackom a capom, alebo pevné %); makro symboly DXY a US10Y s korelačným škálovaním; sentiment (blend / override); váhy; vyhladenie, pozadie, tvary, tabuľka a jej pozícia.
