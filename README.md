@@ -58,12 +58,15 @@ TradingView indikátor (Pine Script v6), ktorý automaticky napodobňuje rozlož
 | Štítky vpravo | ceny TP / entry / SL, tooltip s rizikom, ziskom a R |
 | Sivé čiary | väčšie swing high / low, predĺžené doprava |
 | Sivá trendline | spája posledné dva swing high (klesajúca) alebo swing low (rastúca) |
+| „H“ / „L“ na okraji rámca + čiara doprava | high a low posledných 3 sessions (Ázia → Londýn → NY, 6 hodnôt); pri štarte ďalšej session sa najstaršia zmaže |
+| Tabuľka v rohu | tie isté sessions: high, low, rozsah a kde je cena voči rozsahu (● = session beží) |
 
 ### Nastavenia
 - **Sessions**: časová zóna, tri sessions (názov, čas HHMM-HHMM, farba), rámec / telo / názov / bodka, priehľadnosť, história.
 - **Zóny**: Buy / Sell zapnúť, farba, text, citlivosť swingu, výška zóny (telo sviečky alebo ATR), predĺženie, max. počet, správanie po prerazení.
 - **Plán obchodu**: počet zón, pomer zisk : riziko, rezerva SL, šírka a medzera boxov, štítky, farby.
 - **Úrovne a trendline**: citlivosť swingu, max. počet, predĺženie, správanie po prerazení, farby.
+- **High / Low sessions**: počet sessions v okne, hodnota na okraji rámca, čiara doprava a jej dĺžka a štýl, tabuľka a jej pozícia, veľkosť textu.
 
 ### Alerty
 Cena vstúpila do Buy / Sell zóny, nová Buy / Sell zóna.
