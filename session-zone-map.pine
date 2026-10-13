@@ -1,0 +1,402 @@
+//@version=6
+// =====================================================================
+// SESSION ZONE MAP v1  (sessions • Buy/Sell zóny • plán obchodu • úrovne)
+// Napodobenie rozloženia z referenčného grafu XAUUSD M30:
+//   ▸ Tokyo / London / New York boxy  – prerušovaný rámec high–low + výplň open–close
+//   ▸ zelené Buy zóny (dopyt) s popisom „Buy“ a prerušovanou stredovou čiarou,
+//     červené Sell zóny (ponuka) symetricky
+//   ▸ plán obchodu pri najbližších zónach: tyrkysový box entry → TP, červený entry → SL
+//     (rovnaké ako nástroj „Long/Short position“ v TradingView, ale automaticky)
+//   ▸ sivé horizontálne úrovne z väčších swingov + trendline z posledných dvoch swingov
+// Všetko sa počíta automaticky z ceny – nič sa nekreslí ručne.
+//
+// INŠTALÁCIA (TradingView):
+//   1. Otvor graf (XAUUSD M15 – H1), dole klikni "Pine Editor".
+//   2. Zmaž obsah editora, vlož CELÝ tento súbor (Ctrl+A, Ctrl+V).
+//      Posledný riadok je "// KONIEC SÚBORU – Session Zone Map v1".
+//      Ak sa vloží iba časť, na grafe sa zobrazí červené upozornenie "KÓD JE NEÚPLNÝ".
+//   3. "Uložiť" (napr. "Session Zone Map") → "Pridať do grafu".
+//
+// AKO TO ČÍTAŤ:
+//   Session box    = kde sa obchodovalo v danej session (rámec = rozsah, výplň = telo)
+//   Buy / Sell zóna = sviečka swing low / high, z ktorej cena odišla; zóna žije,
+//                    kým ju close neprerazí. Zóny sa neprekrývajú, drží sa posledných N.
+//   Plán obchodu   = entry na hrane zóny, SL za zónou (+ rezerva v ATR), TP = R × riziko.
+//                    Boxy sú iba vizuálny plán, nie signál.
+//   Úrovne         = väčšie swing high / low ako sivé čiary, trendline spája posledné dva
+//                    swingy (klesajúca z high, rastúca z low).
+// =====================================================================
+indicator("Session Zone Map (sessions • zóny • plán obchodu)", shorttitle = "Session Zone Map", overlay = true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+plot(close, "close (skrytý)", color = color.new(color.gray, 100), display = display.none, editable = false)   // kompilátor vyžaduje aspoň jeden plot; kreslenie je cez box/line/label
+
+// Kontrola úplnosti: upozornenie sa nastaví tu a vymaže až na úplnom konci súboru.
+var table tWarn = table.new(position.middle_center, 1, 1)
+if barstate.islast
+    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód (posledný riadok\n\"// KONIEC SÚBORU – Session Zone Map v1\") a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
+
+// ───────────────────────────── VSTUPY ─────────────────────────────
+G_S = "① Sessions"
+sTz   = input.string("UTC", "Časová zóna sessions", group = G_S, tooltip = "Časy nižšie sa čítajú v tejto zóne. Príklady: UTC, Europe/Prague, Europe/London, America/New_York, Asia/Tokyo. Predvolené časy sú nadväzujúce bloky ako na referenčnom grafe; dajú sa ľubovoľne zmeniť (aj prekrývať).")
+s1On  = input.bool(true, "", group = G_S, inline = "s1")
+s1Nm  = input.string("Tokyo", "", group = G_S, inline = "s1")
+s1Se  = input.session("0000-0700", "", group = G_S, inline = "s1")
+s1Co  = input.color(#7E57C2, "", group = G_S, inline = "s1")
+s2On  = input.bool(true, "", group = G_S, inline = "s2")
+s2Nm  = input.string("London", "", group = G_S, inline = "s2")
+s2Se  = input.session("0700-1300", "", group = G_S, inline = "s2")
+s2Co  = input.color(#26C6DA, "", group = G_S, inline = "s2")
+s3On  = input.bool(true, "", group = G_S, inline = "s3")
+s3Nm  = input.string("New York", "", group = G_S, inline = "s3")
+s3Se  = input.session("1300-2000", "", group = G_S, inline = "s3")
+s3Co  = input.color(#FFA726, "", group = G_S, inline = "s3")
+sRange = input.bool(true, "Rámec session (high – low, prerušovaný)", group = G_S)
+sBody  = input.bool(true, "Telo session (open – close, výplň)", group = G_S)
+sName  = input.bool(true, "Názov session nad rámcom", group = G_S)
+sDot   = input.bool(true, "Bodka na otvorení session", group = G_S)
+sTr    = input.int(85, "Priehľadnosť tela session", minval = 0, maxval = 100, group = G_S)
+sKeep  = input.int(15, "Počet sessions v histórii (na typ)", minval = 1, maxval = 100, group = G_S)
+
+G_Z = "② Zóny Buy / Sell"
+zBuyOn   = input.bool(true, "Buy zóny (dopyt)", group = G_Z, inline = "zb")
+zBuyCo   = input.color(#43A047, "", group = G_Z, inline = "zb")
+zBuyTxt  = input.string("Buy", "", group = G_Z, inline = "zb")
+zSellOn  = input.bool(true, "Sell zóny (ponuka)", group = G_Z, inline = "zs")
+zSellCo  = input.color(#E53935, "", group = G_Z, inline = "zs")
+zSellTxt = input.string("Sell", "", group = G_Z, inline = "zs")
+zLen     = input.int(10, "Citlivosť swingu (sviečky vľavo / vpravo)", minval = 2, maxval = 100, group = G_Z, tooltip = "Zóna vzniká zo swing low (Buy) alebo swing high (Sell), ktoré je extrémom v okne ± N sviečok. Menšie číslo = viac zón, väčšie = iba významné.")
+zMode    = input.string("Telo sviečky", "Výška zóny", options = ["Telo sviečky", "ATR"], group = G_Z, inline = "zh")
+zAtrK    = input.float(0.8, "× ATR(14)", minval = 0.1, step = 0.1, group = G_Z, inline = "zh", tooltip = "Telo sviečky: zóna od knôtu po telo swingovej sviečky, minimálne ATR × koeficient. ATR: presne ATR × koeficient.")
+zExt     = input.int(60, "Predĺženie doprava (sviečky)", minval = 5, maxval = 480, group = G_Z)
+zKeep    = input.int(4, "Max. aktívnych zón na stranu", minval = 1, maxval = 20, group = G_Z)
+zMit     = input.string("Zmazať", "Po prerazení zóny (close za zónou)", options = ["Zmazať", "Stlmiť a zastaviť"], group = G_Z)
+zTr      = input.int(75, "Priehľadnosť zón", minval = 0, maxval = 100, group = G_Z)
+zMidOn   = input.bool(true, "Prerušovaná stredová čiara", group = G_Z, inline = "zm")
+zMidCo   = input.color(#FFFFFF, "", group = G_Z, inline = "zm")
+
+G_P = "③ Plán obchodu (entry → TP / SL)"
+pOn    = input.bool(true, "Kresliť plán k najbližším zónam", group = G_P, tooltip = "Pre najbližšie Buy zóny pod cenou (a Sell zóny nad cenou) nakreslí box zisku a box rizika do budúcnosti, ako nástroj Long/Short position.")
+pCnt   = input.int(2, "Počet zón na stranu", minval = 1, maxval = 6, group = G_P)
+pRR    = input.float(3.0, "Pomer zisk : riziko (R)", minval = 0.5, step = 0.5, group = G_P)
+pSlAtr = input.float(0.25, "Rezerva SL za zónou (× ATR)", minval = 0, step = 0.05, group = G_P)
+pW     = input.int(12, "Šírka boxu (sviečky)", minval = 2, maxval = 100, group = G_P, inline = "pw")
+pGap   = input.int(10, "medzera", minval = 0, maxval = 100, group = G_P, inline = "pw")
+pLbl   = input.bool(true, "Cenové štítky TP / entry / SL", group = G_P)
+pTpCo  = input.color(#26A69A, "TP", group = G_P, inline = "pc")
+pEnCo  = input.color(#9E9E9E, "Entry", group = G_P, inline = "pc")
+pSlCo  = input.color(#EF5350, "SL", group = G_P, inline = "pc")
+pTr    = input.int(70, "Priehľadnosť boxov plánu", minval = 0, maxval = 100, group = G_P)
+
+G_L = "④ Úrovne a trendline"
+lOn    = input.bool(true, "Horizontálne úrovne z väčších swingov", group = G_L)
+lLen   = input.int(20, "Citlivosť swingu (sviečky vľavo / vpravo)", minval = 3, maxval = 200, group = G_L)
+lKeep  = input.int(3, "Max. úrovní na stranu", minval = 1, maxval = 10, group = G_L)
+lExt   = input.int(60, "Predĺženie doprava (sviečky)", minval = 5, maxval = 480, group = G_L)
+lBreak = input.string("Zmazať", "Po prerazení (close za úrovňou)", options = ["Zmazať", "Zastaviť"], group = G_L)
+lCo    = input.color(#9E9E9E, "Úrovne", group = G_L, inline = "lc")
+tOn    = input.bool(true, "Trendline z posledných dvoch swingov", group = G_L, tooltip = "Klesajúca trendline spája posledné dva swing high (ak druhý je nižší), rastúca posledné dva swing low (ak druhý je vyšší). Pri novom swingu sa prekreslí.")
+tCo    = input.color(#9E9E9E, "Trendline", group = G_L, inline = "lc")
+
+// ───────────────────────────── TYPY ─────────────────────────────
+type Sess
+    box   rng
+    box   body
+    label nm
+    label dot
+    float op
+    float hi
+    float lo
+
+type Zone
+    box   bx
+    line  mid
+    label lb
+    float top
+    float bot
+    bool  isBuy
+    bool  active
+
+type Lvl
+    line  ln
+    float p
+    bool  isRes
+    bool  live
+
+// ───────────────────────────── SPOLOČNÉ ─────────────────────────────
+atr = ta.atr(14)
+
+// ───────────────────────────── ① SESSIONS ─────────────────────────────
+drawSession(bool on, string nm, string se, color co) =>
+    var array<Sess> hist = array.new<Sess>()
+    var Sess cur = na
+    bool inS   = on and timeframe.isintraday and not na(time(timeframe.period, se, sTz))
+    bool first = inS and not inS[1]
+    if first
+        Sess s = Sess.new(op = open, hi = high, lo = low)
+        if sRange
+            s.rng := box.new(bar_index, high, bar_index, low, border_color = co, border_width = 1, border_style = line.style_dashed, bgcolor = color.new(co, 100))
+        if sBody
+            s.body := box.new(bar_index, open, bar_index, open, border_color = color.new(co, 100), bgcolor = color.new(co, sTr))
+        if sName
+            s.nm := label.new(bar_index, high, nm, style = label.style_label_lower_left, color = color.new(color.white, 100), textcolor = co, size = size.small)
+        if sDot
+            s.dot := label.new(bar_index, open, "", style = label.style_circle, color = co, size = size.tiny)
+        cur := s
+        array.push(hist, s)
+        if array.size(hist) > sKeep
+            Sess old = array.shift(hist)
+            box.delete(old.rng)
+            box.delete(old.body)
+            label.delete(old.nm)
+            label.delete(old.dot)
+    if inS and not na(cur)
+        cur.hi := math.max(cur.hi, high)
+        cur.lo := math.min(cur.lo, low)
+        if not na(cur.rng)
+            box.set_right(cur.rng, bar_index)
+            box.set_top(cur.rng, cur.hi)
+            box.set_bottom(cur.rng, cur.lo)
+        if not na(cur.body)
+            box.set_right(cur.body, bar_index)
+            box.set_top(cur.body, math.max(cur.op, close))
+            box.set_bottom(cur.body, math.min(cur.op, close))
+        if not na(cur.nm)
+            label.set_y(cur.nm, cur.hi)
+    inS
+
+drawSession(s1On, s1Nm, s1Se, s1Co)
+drawSession(s2On, s2Nm, s2Se, s2Co)
+drawSession(s3On, s3Nm, s3Se, s3Co)
+
+// ───────────────────────────── ② ZÓNY BUY / SELL ─────────────────────────────
+var array<Zone> zones = array.new<Zone>()
+pl = ta.pivotlow(zLen, zLen)
+ph = ta.pivothigh(zLen, zLen)
+
+delZone(Zone z) =>
+    box.delete(z.bx)
+    line.delete(z.mid)
+    label.delete(z.lb)
+
+zoneOverlaps(float t, float b, bool isBuy) =>
+    bool r = false
+    if array.size(zones) > 0
+        for i = 0 to array.size(zones) - 1
+            Zone z = array.get(zones, i)
+            if z.active and z.isBuy == isBuy and b <= z.top and t >= z.bot
+                r := true
+    r
+
+newZone(int x1, float t, float b, bool isBuy) =>
+    color co = isBuy ? zBuyCo : zSellCo
+    float m  = (t + b) / 2
+    Zone z = Zone.new(top = t, bot = b, isBuy = isBuy, active = true)
+    z.bx := box.new(x1, t, bar_index + zExt, b, border_color = color.new(co, 100), bgcolor = color.new(co, zTr))
+    if zMidOn
+        z.mid := line.new(x1, m, bar_index + zExt, m, color = color.new(zMidCo, 20), style = line.style_dashed, width = 1)
+    z.lb := label.new(bar_index + zExt, m, isBuy ? zBuyTxt : zSellTxt, style = label.style_label_right, color = color.new(color.white, 100), textcolor = co, size = size.normal, tooltip = (isBuy ? "Buy zóna " : "Sell zóna ") + str.tostring(b, format.mintick) + " – " + str.tostring(t, format.mintick))
+    array.push(zones, z)
+    // drž iba posledných N aktívnych zón na stranu
+    int n = 0
+    if array.size(zones) > 0
+        for i = array.size(zones) - 1 to 0
+            Zone q = array.get(zones, i)
+            if q.isBuy == isBuy
+                n += 1
+                if n > zKeep
+                    delZone(q)
+                    array.remove(zones, i)
+
+// údržba existujúcich zón: prerazenie, predĺženie, dotyk
+bool touchBuy  = false
+bool touchSell = false
+if array.size(zones) > 0
+    for i = array.size(zones) - 1 to 0
+        Zone z = array.get(zones, i)
+        if z.active
+            bool broken = z.isBuy ? close < z.bot : close > z.top
+            if broken
+                if zMit == "Zmazať"
+                    delZone(z)
+                    array.remove(zones, i)
+                else
+                    z.active := false
+                    color co = z.isBuy ? zBuyCo : zSellCo
+                    box.set_right(z.bx, bar_index)
+                    box.set_bgcolor(z.bx, color.new(co, math.min(100, zTr + 15)))
+                    if not na(z.mid)
+                        line.set_x2(z.mid, bar_index)
+                    label.set_x(z.lb, bar_index)
+                    label.set_textcolor(z.lb, color.new(co, 50))
+            else
+                box.set_right(z.bx, bar_index + zExt)
+                if not na(z.mid)
+                    line.set_x2(z.mid, bar_index + zExt)
+                label.set_x(z.lb, bar_index + zExt)
+                bool inNow  = low <= z.top and high >= z.bot
+                bool inPrev = low[1] <= z.top and high[1] >= z.bot
+                if inNow and not inPrev
+                    if z.isBuy
+                        touchBuy := true
+                    else
+                        touchSell := true
+
+// nové zóny z potvrdených swingov
+bool newBuy  = false
+bool newSell = false
+if zBuyOn and not na(pl)
+    float b  = low[zLen]
+    float bl = math.min(open[zLen], close[zLen])
+    float h  = zMode == "ATR" ? atr[zLen] * zAtrK : math.max(bl - b, atr[zLen] * zAtrK)
+    float t  = b + h
+    if not zoneOverlaps(t, b, true)
+        newZone(bar_index - zLen, t, b, true)
+        newBuy := true
+if zSellOn and not na(ph)
+    float t  = high[zLen]
+    float bh = math.max(open[zLen], close[zLen])
+    float h  = zMode == "ATR" ? atr[zLen] * zAtrK : math.max(t - bh, atr[zLen] * zAtrK)
+    float b  = t - h
+    if not zoneOverlaps(t, b, false)
+        newZone(bar_index - zLen, t, b, false)
+        newSell := true
+
+// ───────────────────────────── ③ PLÁN OBCHODU ─────────────────────────────
+var array<box>   pBx = array.new<box>()
+var array<label> pLb = array.new<label>()
+
+planSide(bool isBuy) =>
+    array<float> keys = array.new<float>()
+    array<int>   idxs = array.new<int>()
+    if array.size(zones) > 0
+        for i = 0 to array.size(zones) - 1
+            Zone z = array.get(zones, i)
+            if z.active and z.isBuy == isBuy and (isBuy ? z.bot < close : z.top > close)
+                array.push(idxs, i)
+                array.push(keys, isBuy ? z.top : -z.bot)   // najbližšia zóna k cene prvá
+    int k = 0
+    if array.size(keys) > 0
+        array<int> order = array.sort_indices(keys, order.descending)
+        for j = 0 to array.size(order) - 1
+            if k < pCnt
+                Zone z = array.get(zones, array.get(idxs, array.get(order, j)))
+                float entry = isBuy ? z.top : z.bot
+                float sl    = isBuy ? z.bot - atr * pSlAtr : z.top + atr * pSlAtr
+                float risk  = math.abs(entry - sl)
+                float tp    = isBuy ? entry + risk * pRR : entry - risk * pRR
+                int   x1    = bar_index + 1 + k * (pW + pGap)
+                int   x2    = x1 + pW
+                array.push(pBx, box.new(x1, math.max(tp, entry), x2, math.min(tp, entry), border_color = color.new(pTpCo, 100), bgcolor = color.new(pTpCo, pTr)))
+                array.push(pBx, box.new(x1, math.max(sl, entry), x2, math.min(sl, entry), border_color = color.new(pSlCo, 100), bgcolor = color.new(pSlCo, pTr)))
+                if pLbl
+                    string tt = (isBuy ? "LONG" : "SHORT") + " plán zo zóny" + "\nEntry " + str.tostring(entry, format.mintick) + "\nSL " + str.tostring(sl, format.mintick) + "  (riziko " + str.tostring(risk, "#.##") + ")" + "\nTP " + str.tostring(tp, format.mintick) + "  (zisk " + str.tostring(risk * pRR, "#.##") + ")" + "\nR = 1 : " + str.tostring(pRR, "#.#")
+                    array.push(pLb, label.new(x2, tp, "TP " + str.tostring(tp, format.mintick), style = label.style_label_left, color = pTpCo, textcolor = color.white, size = size.small, tooltip = tt))
+                    array.push(pLb, label.new(x2, entry, str.tostring(entry, format.mintick), style = label.style_label_left, color = pEnCo, textcolor = color.white, size = size.small, tooltip = tt))
+                    array.push(pLb, label.new(x2, sl, "SL " + str.tostring(sl, format.mintick), style = label.style_label_left, color = pSlCo, textcolor = color.white, size = size.small, tooltip = tt))
+                k += 1
+
+if barstate.islast
+    if array.size(pBx) > 0
+        for b in pBx
+            box.delete(b)
+        array.clear(pBx)
+    if array.size(pLb) > 0
+        for l in pLb
+            label.delete(l)
+        array.clear(pLb)
+    if pOn
+        if zBuyOn
+            planSide(true)
+        if zSellOn
+            planSide(false)
+
+// ───────────────────────────── ④ ÚROVNE A TRENDLINE ─────────────────────────────
+var array<Lvl> lvls = array.new<Lvl>()
+phL = ta.pivothigh(lLen, lLen)
+plL = ta.pivotlow(lLen, lLen)
+
+newLvl(float p, bool isRes) =>
+    Lvl l = Lvl.new(p = p, isRes = isRes, live = true)
+    l.ln := line.new(bar_index - lLen, p, bar_index + lExt, p, color = lCo, width = 1)
+    array.push(lvls, l)
+    int n = 0
+    if array.size(lvls) > 0
+        for i = array.size(lvls) - 1 to 0
+            Lvl q = array.get(lvls, i)
+            if q.isRes == isRes
+                n += 1
+                if n > lKeep
+                    line.delete(q.ln)
+                    array.remove(lvls, i)
+
+if lOn
+    if array.size(lvls) > 0
+        for i = array.size(lvls) - 1 to 0
+            Lvl l = array.get(lvls, i)
+            if l.live
+                bool brk = l.isRes ? close > l.p : close < l.p
+                if brk
+                    if lBreak == "Zmazať"
+                        line.delete(l.ln)
+                        array.remove(lvls, i)
+                    else
+                        l.live := false
+                        line.set_x2(l.ln, bar_index)
+                        line.set_style(l.ln, line.style_dotted)
+                else
+                    line.set_x2(l.ln, bar_index + lExt)
+    if not na(phL)
+        newLvl(phL, true)
+    if not na(plL)
+        newLvl(plL, false)
+
+var int   hB1 = na
+var float hP1 = na
+var int   hB2 = na
+var float hP2 = na
+var int   lB1 = na
+var float lP1 = na
+var int   lB2 = na
+var float lP2 = na
+var line  tlDn = na
+var line  tlUp = na
+if tOn
+    if not na(phL)
+        hB2 := hB1
+        hP2 := hP1
+        hB1 := bar_index - lLen
+        hP1 := phL
+        if not na(hB2) and hP1 < hP2
+            if na(tlDn)
+                tlDn := line.new(hB2, hP2, hB1, hP1, extend = extend.right, color = tCo, width = 1)
+            else
+                line.set_xy1(tlDn, hB2, hP2)
+                line.set_xy2(tlDn, hB1, hP1)
+        else if not na(tlDn)
+            line.delete(tlDn)
+            tlDn := na
+    if not na(plL)
+        lB2 := lB1
+        lP2 := lP1
+        lB1 := bar_index - lLen
+        lP1 := plL
+        if not na(lB2) and lP1 > lP2
+            if na(tlUp)
+                tlUp := line.new(lB2, lP2, lB1, lP1, extend = extend.right, color = tCo, width = 1)
+            else
+                line.set_xy1(tlUp, lB2, lP2)
+                line.set_xy2(tlUp, lB1, lP1)
+        else if not na(tlUp)
+            line.delete(tlUp)
+            tlUp := na
+
+// ───────────────────────────── ALERTY ─────────────────────────────
+alertcondition(touchBuy,  "Cena vstúpila do Buy zóny",  "Session Zone Map: cena vstúpila do Buy zóny")
+alertcondition(touchSell, "Cena vstúpila do Sell zóny", "Session Zone Map: cena vstúpila do Sell zóny")
+alertcondition(newBuy,    "Nová Buy zóna",  "Session Zone Map: vznikla nová Buy zóna")
+alertcondition(newSell,   "Nová Sell zóna", "Session Zone Map: vznikla nová Sell zóna")
+
+// ───────────────────────────── KONIEC ─────────────────────────────
+// Kód je vložený celý → zruš upozornenie "KÓD JE NEÚPLNÝ" zo začiatku súboru.
+if barstate.islast
+    table.cell(tWarn, 0, 0, "", bgcolor = color.new(color.black, 100))
+// KONIEC SÚBORU – Session Zone Map v1

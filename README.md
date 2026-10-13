@@ -35,3 +35,37 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**. Zobrazí všetkých 158 
 Filter dátumu, typy signálov, minimálny ponor, režim „zvýrazniť iba hlboké“, režim štítkov (Plné / Kompaktné / Iba číslo / Skryť), veľkosti, pipy, lot pre prepočet, časová zóna, všetky farby a pozície tabuliek.
 
 Dáta pochádzajú z `gfx.db setup_metrics` (MAE strict fill), otvorené signály podľa stavu 2026-10-07. Symbol ✎ znamená, že čas postu bol upravený.
+
+## Session Zone Map (`session-zone-map.pine`)
+
+TradingView indikátor (Pine Script v6), ktorý automaticky napodobňuje rozloženie z referenčného grafu XAUUSD M30: session boxy, Buy/Sell zóny s popisom, plán obchodu (entry → TP / SL) a sivé úrovne s trendline. Nič sa nekreslí ručne, všetko vzniká z ceny.
+
+### Inštalácia
+1. Otvor graf (XAUUSD M15 – H1) a dole klikni na **Pine Editor**.
+2. Zmaž obsah editora a vlož celý súbor `session-zone-map.pine`.
+3. Klikni na **Uložiť** a potom na **Pridať do grafu**.
+
+### Čo je na grafe
+| Prvok | Význam |
+|---|---|
+| Prerušovaný rámec Tokyo / London / New York | rozsah session (high – low), názov nad rámcom, bodka na otvorení |
+| Svetlá výplň v rámci | telo session (open – close) |
+| Zelená zóna „Buy“ | dopyt zo swing low, z ktorého cena odišla; žije, kým ju close neprerazí |
+| Červená zóna „Sell“ | ponuka zo swing high, symetricky |
+| Prerušovaná stredová čiara | stred zóny |
+| Tyrkysový box | plán: entry na hrane najbližšej zóny → TP (R × riziko) |
+| Červený box | plán: entry → SL (za zónou + rezerva v ATR) |
+| Štítky vpravo | ceny TP / entry / SL, tooltip s rizikom, ziskom a R |
+| Sivé čiary | väčšie swing high / low, predĺžené doprava |
+| Sivá trendline | spája posledné dva swing high (klesajúca) alebo swing low (rastúca) |
+
+### Nastavenia
+- **Sessions**: časová zóna, tri sessions (názov, čas HHMM-HHMM, farba), rámec / telo / názov / bodka, priehľadnosť, história.
+- **Zóny**: Buy / Sell zapnúť, farba, text, citlivosť swingu, výška zóny (telo sviečky alebo ATR), predĺženie, max. počet, správanie po prerazení.
+- **Plán obchodu**: počet zón, pomer zisk : riziko, rezerva SL, šírka a medzera boxov, štítky, farby.
+- **Úrovne a trendline**: citlivosť swingu, max. počet, predĺženie, správanie po prerazení, farby.
+
+### Alerty
+Cena vstúpila do Buy / Sell zóny, nová Buy / Sell zóna.
+
+Plán obchodu je iba vizuál, nie signál. Červené šípky z referenčného grafu (projekcia cesty ceny) sú ručná kresba a indikátor ich nekreslí.
