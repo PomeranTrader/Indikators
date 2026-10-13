@@ -72,3 +72,20 @@ TradingView indikátor (Pine Script v6), ktorý automaticky napodobňuje rozlož
 Cena vstúpila do Buy / Sell zóny, nová Buy / Sell zóna.
 
 Plán obchodu je iba vizuál, nie signál. Červené šípky z referenčného grafu (projekcia cesty ceny) sú ručná kresba a indikátor ich nekreslí.
+
+## Session Zone Strategy (`session-zone-strategy.pine`)
+
+Testovacia stratégia (Pine Script v6, `strategy()`) postavená na rovnakých sessions a Buy/Sell zónach ako Session Zone Map. Vlož ju rovnako cez Pine Editor a dole otvor **Strategy Tester**.
+
+### Logika obchodu
+| Krok | Pravidlo |
+|---|---|
+| Vstup | limit na hrane najbližšej zóny (Buy pod cenou, Sell nad cenou) alebo market pri dotyku zóny; voliteľne iba vo zvolených sessions a v dátumovom rozsahu |
+| Stop loss | pevný: za zónou + rezerva v ATR, alebo pevný počet bodov; nikdy sa nehýbe proti obchodu |
+| Cieľ TP | R × riziko (predvolene 3) |
+| Trail | keď cena prejde zvolené % cesty k TP (predvolene 50 %), stop ide za cenou v odstupe × riziko, × ATR alebo v bodoch |
+| Voliteľné | pevný TP ako strop, posun SL na BE pri aktivácii trailu, max. 1 obchod na zónu |
+
+Na grafe sú čiary entry / stop (červený = pevný SL, oranžový = trail) / TP, úroveň aktivácie trailu a výplň zisku a rizika. Pri výstupe sa zobrazí štítok s výsledkom v R a typom výstupu (SL / Trail / TP). Tabuľka v rohu: obchody, úspešnosť, výstupy podľa typu, súčet a priemer R, profit factor, čistý zisk.
+
+Veľkosť pozície je predvolene 1 kontrakt (na OANDA XAUUSD 1 oz), takže zisk v USD = pohyb ceny. Lot a poplatky nastav v Properties.

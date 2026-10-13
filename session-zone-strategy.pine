@@ -1,0 +1,398 @@
+//@version=6
+// =====================================================================
+// SESSION ZONE STRATEGY v1  (zóny • pevný SL • trail TP od polovice pohybu)
+// Testovacia stratégia postavená na indikátore Session Zone Map:
+//   ▸ rovnaké session boxy (Tokyo / London / New York) a Buy / Sell zóny zo swingov
+//   ▸ VSTUP: limit na hrane zóny (alebo market pri dotyku), voliteľne iba vo zvolených sessions
+//   ▸ SL: pevný – za zónou + rezerva v ATR, alebo pevný počet bodov; nikdy sa nehýbe dole
+//   ▸ TP: cieľ = R × riziko; keď cena prejde polovicu cesty k TP (nastaviteľné %),
+//          zapne sa TRAIL – stop ide za cenou v odstupe (× riziko, × ATR alebo body)
+//   ▸ voliteľne: pevný TP ako strop, posun SL na BE pri aktivácii trailu, 1 obchod na zónu
+//   ▸ tabuľka: počet obchodov, úspešnosť, výstupy SL / Trail / TP, súčet a priemer R
+//
+// INŠTALÁCIA (TradingView):
+//   1. Otvor graf (XAUUSD M15 – H1), dole klikni "Pine Editor".
+//   2. Zmaž obsah editora, vlož CELÝ tento súbor (Ctrl+A, Ctrl+V).
+//      Posledný riadok je "// KONIEC SÚBORU – Session Zone Strategy v1".
+//   3. "Uložiť" → "Pridať do grafu" → dole otvor "Strategy Tester".
+//
+// VEĽKOSŤ POZÍCIE: predvolene 1 kontrakt (na OANDA XAUUSD = 1 oz), takže zisk v USD
+//   = pohyb ceny v USD. Lot 0.10 = 10 kontraktov; nastav v Properties → Order size.
+//   Poplatky a slippage nastav tiež v Properties, predvolene sú 0.
+// =====================================================================
+strategy("Session Zone Strategy (zóny • pevný SL • trail TP)", shorttitle = "Session Zone Strategy", overlay = true, initial_capital = 10000, default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0, calc_on_every_tick = false, process_orders_on_close = false, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+
+// Kontrola úplnosti: upozornenie sa nastaví tu a vymaže až na úplnom konci súboru.
+var table tWarn = table.new(position.middle_center, 1, 1)
+if barstate.islast
+    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód (posledný riadok\n\"// KONIEC SÚBORU – Session Zone Strategy v1\") a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
+
+// ───────────────────────────── VSTUPY ─────────────────────────────
+G_T = "① Stratégia – vstup"
+dirMode   = input.string("Long aj Short", "Smer", options = ["Long aj Short", "Iba Long", "Iba Short"], group = G_T)
+entryMode = input.string("Limit na hrane zóny", "Spôsob vstupu", options = ["Limit na hrane zóny", "Market pri dotyku zóny"], group = G_T, tooltip = "Limit: čakajúci príkaz na hrane najbližšej zóny (plní sa presne na hrane). Market: keď sviečka zasiahne zónu, vstup na otvorení ďalšej sviečky.")
+fromT     = input.time(timestamp("01 Jan 2020 00:00 +0000"), "Od", group = G_T, inline = "dt")
+toT       = input.time(timestamp("31 Dec 2030 00:00 +0000"), "Do", group = G_T, inline = "dt")
+f1        = input.bool(true, "Vstup v 1. session", group = G_T, inline = "f")
+f2        = input.bool(true, "2.", group = G_T, inline = "f")
+f3        = input.bool(true, "3.", group = G_T, inline = "f")
+oneZone   = input.bool(true, "Max. 1 obchod na zónu", group = G_T, tooltip = "Po vyplnení vstupu sa zóna označí ako použitá a už sa z nej neobchoduje (retest sa ignoruje).")
+
+G_R = "② Stratégia – SL / TP / trail"
+slMode = input.string("Za zónou + ATR rezerva", "Stop loss (pevný)", options = ["Za zónou + ATR rezerva", "Pevný v bodoch"], group = G_R)
+slAtr  = input.float(0.25, "Rezerva SL za zónou (× ATR)", minval = 0, step = 0.05, group = G_R)
+slPts  = input.float(10.0, "Pevný SL (body = USD pri XAUUSD)", minval = 0.1, step = 0.5, group = G_R)
+rrTP   = input.float(3.0, "Cieľ TP (R = násobok rizika)", minval = 0.5, step = 0.5, group = G_R)
+trAct  = input.float(50, "Aktivácia trailu (% cesty k TP)", minval = 5, maxval = 100, step = 5, group = G_R, tooltip = "50 = trail sa zapne, keď cena prejde polovicu vzdialenosti entry → TP.")
+trMode = input.string("× riziko (R)", "Odstup trailu", options = ["× riziko (R)", "× ATR", "Body"], group = G_R, inline = "tr")
+trK    = input.float(0.5, "koef.", minval = 0.05, step = 0.05, group = G_R, inline = "tr", tooltip = "× riziko: odstup = koef. × (entry − SL). × ATR: koef. × ATR(14). Body: použije sa hodnota nižšie.")
+trPts  = input.float(5.0, "Odstup trailu v bodoch", minval = 0.1, step = 0.5, group = G_R)
+capOn  = input.bool(false, "Pevný TP ako strop (ukončiť pri dosiahnutí cieľa)", group = G_R, tooltip = "Vypnuté = po aktivácii trailu nechá obchod bežať, kým cena nezasiahne trail stop. Zapnuté = najneskôr sa ukončí na cieľovom TP.")
+beOn   = input.bool(false, "Pri aktivácii trailu posunúť SL na BE", group = G_R, inline = "be")
+bePts  = input.float(0.0, "+ body", minval = 0, step = 0.5, group = G_R, inline = "be")
+
+G_S = "③ Sessions"
+sTz   = input.string("UTC", "Časová zóna sessions", group = G_S, tooltip = "Príklady: UTC, Europe/Prague, Europe/London, America/New_York, Asia/Tokyo.")
+s1On  = input.bool(true, "", group = G_S, inline = "s1")
+s1Nm  = input.string("Tokyo", "", group = G_S, inline = "s1")
+s1Se  = input.session("0000-0700", "", group = G_S, inline = "s1")
+s1Co  = input.color(#7E57C2, "", group = G_S, inline = "s1")
+s2On  = input.bool(true, "", group = G_S, inline = "s2")
+s2Nm  = input.string("London", "", group = G_S, inline = "s2")
+s2Se  = input.session("0700-1300", "", group = G_S, inline = "s2")
+s2Co  = input.color(#26C6DA, "", group = G_S, inline = "s2")
+s3On  = input.bool(true, "", group = G_S, inline = "s3")
+s3Nm  = input.string("New York", "", group = G_S, inline = "s3")
+s3Se  = input.session("1300-2000", "", group = G_S, inline = "s3")
+s3Co  = input.color(#FFA726, "", group = G_S, inline = "s3")
+sDraw = input.bool(true, "Kresliť session boxy", group = G_S)
+sTr   = input.int(85, "Priehľadnosť tela session", minval = 0, maxval = 100, group = G_S)
+sKeep = input.int(15, "Počet sessions v histórii (na typ)", minval = 1, maxval = 100, group = G_S)
+
+G_Z = "④ Zóny Buy / Sell"
+zBuyCo   = input.color(#43A047, "Buy", group = G_Z, inline = "zc")
+zSellCo  = input.color(#E53935, "Sell", group = G_Z, inline = "zc")
+zLen     = input.int(10, "Citlivosť swingu (sviečky vľavo / vpravo)", minval = 2, maxval = 100, group = G_Z)
+zMode    = input.string("Telo sviečky", "Výška zóny", options = ["Telo sviečky", "ATR"], group = G_Z, inline = "zh")
+zAtrK    = input.float(0.8, "× ATR(14)", minval = 0.1, step = 0.1, group = G_Z, inline = "zh")
+zExt     = input.int(60, "Predĺženie doprava (sviečky)", minval = 5, maxval = 480, group = G_Z)
+zKeep    = input.int(4, "Max. aktívnych zón na stranu", minval = 1, maxval = 20, group = G_Z)
+zTr      = input.int(75, "Priehľadnosť zón", minval = 0, maxval = 100, group = G_Z)
+
+G_V = "⑤ Vizuál obchodu a tabuľka"
+showTrade = input.bool(true, "Čiary entry / stop / TP + výplň", group = G_V)
+showLbl   = input.bool(true, "Štítok výsledku pri výstupe (R, typ výstupu)", group = G_V)
+cTP   = input.color(#26A69A, "TP", group = G_V, inline = "c")
+cSL   = input.color(#EF5350, "SL", group = G_V, inline = "c")
+cTrl  = input.color(#FF9800, "Trail", group = G_V, inline = "c")
+showStats = input.bool(true, "Tabuľka výsledkov", group = G_V, inline = "st")
+statsPos  = input.string("Vpravo hore", "", options = ["Vpravo hore", "Vpravo stred", "Vpravo dole", "Vľavo hore", "Vľavo stred", "Vľavo dole", "Stred hore", "Stred dole"], group = G_V, inline = "st")
+
+// ───────────────────────────── TYPY ─────────────────────────────
+type Sess
+    box   rng
+    box   body
+    label nm
+    float op
+    float hi
+    float lo
+
+type Zone
+    box   bx
+    label lb
+    float top
+    float bot
+    bool  isBuy
+    bool  active
+    bool  used
+
+// ───────────────────────────── SPOLOČNÉ ─────────────────────────────
+atr = ta.atr(14)
+
+f_pos(string p) =>
+    switch p
+        "Vpravo hore"  => position.top_right
+        "Vpravo stred" => position.middle_right
+        "Vpravo dole"  => position.bottom_right
+        "Vľavo hore"   => position.top_left
+        "Vľavo stred"  => position.middle_left
+        "Vľavo dole"   => position.bottom_left
+        "Stred hore"   => position.top_center
+        => position.bottom_center
+
+// ───────────────────────────── SESSIONS ─────────────────────────────
+drawSession(bool on, string nm, string se, color co) =>
+    var array<Sess> hist = array.new<Sess>()
+    var Sess cur = na
+    bool inS   = on and timeframe.isintraday and not na(time(timeframe.period, se, sTz))
+    bool first = inS and not inS[1]
+    if first and sDraw
+        Sess s = Sess.new(op = open, hi = high, lo = low)
+        s.rng  := box.new(bar_index, high, bar_index, low, border_color = co, border_width = 1, border_style = line.style_dashed, bgcolor = color.new(co, 100))
+        s.body := box.new(bar_index, open, bar_index, open, border_color = color.new(co, 100), bgcolor = color.new(co, sTr))
+        s.nm   := label.new(bar_index, high, nm, style = label.style_label_lower_left, color = color.new(color.white, 100), textcolor = co, size = size.small)
+        cur := s
+        array.push(hist, s)
+        if array.size(hist) > sKeep
+            Sess old = array.shift(hist)
+            box.delete(old.rng)
+            box.delete(old.body)
+            label.delete(old.nm)
+    if inS and not na(cur)
+        cur.hi := math.max(cur.hi, high)
+        cur.lo := math.min(cur.lo, low)
+        box.set_right(cur.rng, bar_index)
+        box.set_top(cur.rng, cur.hi)
+        box.set_bottom(cur.rng, cur.lo)
+        box.set_right(cur.body, bar_index)
+        box.set_top(cur.body, math.max(cur.op, close))
+        box.set_bottom(cur.body, math.min(cur.op, close))
+        label.set_y(cur.nm, cur.hi)
+    inS
+
+inS1 = drawSession(s1On, s1Nm, s1Se, s1Co)
+inS2 = drawSession(s2On, s2Nm, s2Se, s2Co)
+inS3 = drawSession(s3On, s3Nm, s3Se, s3Co)
+bool inSel = (f1 and inS1) or (f2 and inS2) or (f3 and inS3)
+bool inDate = time >= fromT and time <= toT
+
+// ───────────────────────────── ZÓNY BUY / SELL ─────────────────────────────
+var array<Zone> zones = array.new<Zone>()
+pl = ta.pivotlow(zLen, zLen)
+ph = ta.pivothigh(zLen, zLen)
+
+delZone(Zone z) =>
+    box.delete(z.bx)
+    label.delete(z.lb)
+
+zoneOverlaps(float t, float b, bool isBuy) =>
+    bool r = false
+    if array.size(zones) > 0
+        for i = 0 to array.size(zones) - 1
+            Zone z = array.get(zones, i)
+            if z.active and z.isBuy == isBuy and b <= z.top and t >= z.bot
+                r := true
+    r
+
+newZone(int x1, float t, float b, bool isBuy) =>
+    color co = isBuy ? zBuyCo : zSellCo
+    Zone z = Zone.new(top = t, bot = b, isBuy = isBuy, active = true, used = false)
+    z.bx := box.new(x1, t, bar_index + zExt, b, border_color = color.new(co, 100), bgcolor = color.new(co, zTr))
+    z.lb := label.new(bar_index + zExt, (t + b) / 2, isBuy ? "Buy" : "Sell", style = label.style_label_right, color = color.new(color.white, 100), textcolor = co, size = size.normal)
+    array.push(zones, z)
+    int n = 0
+    if array.size(zones) > 0
+        for i = array.size(zones) - 1 to 0
+            Zone q = array.get(zones, i)
+            if q.isBuy == isBuy
+                n += 1
+                if n > zKeep
+                    delZone(q)
+                    array.remove(zones, i)
+
+if array.size(zones) > 0
+    for i = array.size(zones) - 1 to 0
+        Zone z = array.get(zones, i)
+        if z.active
+            bool broken = z.isBuy ? close < z.bot : close > z.top
+            if broken
+                delZone(z)
+                array.remove(zones, i)
+            else
+                box.set_right(z.bx, bar_index + zExt)
+                label.set_x(z.lb, bar_index + zExt)
+
+if not na(pl)
+    float b  = low[zLen]
+    float bl = math.min(open[zLen], close[zLen])
+    float h  = zMode == "ATR" ? atr[zLen] * zAtrK : math.max(bl - b, atr[zLen] * zAtrK)
+    if not zoneOverlaps(b + h, b, true)
+        newZone(bar_index - zLen, b + h, b, true)
+if not na(ph)
+    float t  = high[zLen]
+    float bh = math.max(open[zLen], close[zLen])
+    float h  = zMode == "ATR" ? atr[zLen] * zAtrK : math.max(t - bh, atr[zLen] * zAtrK)
+    if not zoneOverlaps(t, t - h, false)
+        newZone(bar_index - zLen, t, t - h, false)
+
+// najbližšia použiteľná zóna na danej strane (Buy pod cenou, Sell nad cenou)
+nearest(bool isBuy) =>
+    Zone best = na
+    float bestD = na
+    if array.size(zones) > 0
+        for i = 0 to array.size(zones) - 1
+            Zone z = array.get(zones, i)
+            if z.active and z.isBuy == isBuy and not (oneZone and z.used) and (isBuy ? z.top < close : z.bot > close)
+                float d = isBuy ? close - z.top : z.bot - close
+                if na(bestD) or d < bestD
+                    bestD := d
+                    best  := z
+    best
+
+// ───────────────────────────── OBCHODNÁ LOGIKA ─────────────────────────────
+var float pendSL   = na      // SL pripravený pri zadaní príkazu (na = dopočítať z fill ceny)
+var Zone  pendZone = na
+var int   eDir   = 0
+var float eEntry = na
+var float eSL    = na
+var float eRisk  = na
+var float eTP    = na
+var float curStop = na
+var float peak   = na
+var bool  trailOn = false
+var int   eBar   = na
+
+bool inPos  = strategy.position_size != 0
+bool opened = inPos and not inPos[1]
+bool closedNow = not inPos and inPos[1]
+
+bool allowL = dirMode != "Iba Short"
+bool allowS = dirMode != "Iba Long"
+
+if not inPos and not opened
+    if inDate and inSel
+        Zone zl = allowL ? nearest(true)  : na
+        Zone zs = allowS ? nearest(false) : na
+        bool okL = not na(zl)
+        bool okS = not na(zs)
+        if entryMode == "Limit na hrane zóny"
+            bool chooseL = okL and (not okS or (close - zl.top) <= (zs.bot - close))
+            bool chooseS = okS and not chooseL
+            if chooseL
+                float en = zl.top
+                pendSL   := slMode == "Pevný v bodoch" ? en - slPts : zl.bot - atr * slAtr
+                pendZone := zl
+                strategy.cancel("Short")
+                strategy.entry("Long", strategy.long, limit = en)
+                strategy.exit("Exit", from_entry = "Long", stop = pendSL, comment_loss = "SL")
+            else if chooseS
+                float en = zs.bot
+                pendSL   := slMode == "Pevný v bodoch" ? en + slPts : zs.top + atr * slAtr
+                pendZone := zs
+                strategy.cancel("Long")
+                strategy.entry("Short", strategy.short, limit = en)
+                strategy.exit("Exit", from_entry = "Short", stop = pendSL, comment_loss = "SL")
+            else
+                strategy.cancel("Long")
+                strategy.cancel("Short")
+        else
+            bool touchL = okL and low  <= zl.top
+            bool touchS = okS and high >= zs.bot
+            bool chooseL = touchL and (not touchS or (close - zl.top) <= (zs.bot - close))
+            bool chooseS = touchS and not chooseL
+            if chooseL
+                pendSL   := slMode == "Pevný v bodoch" ? na : zl.bot - atr * slAtr
+                pendZone := zl
+                strategy.entry("Long", strategy.long)
+            else if chooseS
+                pendSL   := slMode == "Pevný v bodoch" ? na : zs.top + atr * slAtr
+                pendZone := zs
+                strategy.entry("Short", strategy.short)
+    else
+        strategy.cancel("Long")
+        strategy.cancel("Short")
+
+if opened
+    eDir    := strategy.position_size > 0 ? 1 : -1
+    eEntry  := strategy.position_avg_price
+    eSL     := na(pendSL) ? eEntry - eDir * slPts : pendSL
+    // poistka: SL musí byť na správnej strane entry
+    if (eDir > 0 and eSL >= eEntry) or (eDir < 0 and eSL <= eEntry)
+        eSL := eEntry - eDir * math.max(slPts, atr)
+    eRisk   := math.abs(eEntry - eSL)
+    eTP     := eEntry + eDir * eRisk * rrTP
+    curStop := eSL
+    peak    := na
+    trailOn := false
+    eBar    := bar_index
+    if not na(pendZone)
+        pendZone.used := true
+    strategy.cancel("Long")
+    strategy.cancel("Short")
+
+float actLvl = inPos ? eEntry + eDir * (eTP - eEntry) * trAct / 100 : na
+
+if inPos
+    bool reach = eDir > 0 ? high >= actLvl : low <= actLvl
+    if not trailOn and reach
+        trailOn := true
+        peak    := eDir > 0 ? high : low
+        if beOn
+            float be = eEntry + eDir * bePts
+            curStop := eDir > 0 ? math.max(curStop, be) : math.min(curStop, be)
+    if trailOn
+        peak := eDir > 0 ? math.max(peak, high) : math.min(peak, low)
+        float dist = trMode == "× riziko (R)" ? eRisk * trK : trMode == "× ATR" ? atr * trK : trPts
+        float ts   = peak - eDir * dist
+        curStop := eDir > 0 ? math.max(curStop, ts) : math.min(curStop, ts)
+    strategy.exit("Exit", from_entry = eDir > 0 ? "Long" : "Short", stop = curStop, limit = capOn ? eTP : na, comment_loss = trailOn ? "Trail" : "SL", comment_profit = "TP")
+
+// ───────────────────────────── ŠTATISTIKA VÝSTUPOV ─────────────────────────────
+var int   nTr = 0
+var int   nWin = 0
+var int   nSL = 0
+var int   nTrail = 0
+var int   nTP = 0
+var float sumR = 0.0
+var float bestR = na
+var float worstR = na
+
+if closedNow and strategy.closedtrades > 0
+    float ex = strategy.closedtrades.exit_price(strategy.closedtrades - 1)
+    float r  = eRisk > 0 ? (ex - eEntry) * eDir / eRisk : 0.0
+    string kind = capOn and math.abs(ex - eTP) <= syminfo.mintick * 2 ? "TP" : trailOn ? "Trail" : "SL"
+    nTr += 1
+    if r > 0
+        nWin += 1
+    if kind == "TP"
+        nTP += 1
+    else if kind == "Trail"
+        nTrail += 1
+    else
+        nSL += 1
+    sumR += r
+    bestR  := na(bestR) ? r : math.max(bestR, r)
+    worstR := na(worstR) ? r : math.min(worstR, r)
+    if showLbl
+        color kc = kind == "TP" ? cTP : kind == "Trail" ? cTrl : cSL
+        label.new(bar_index, ex, (r >= 0 ? "+" : "") + str.tostring(r, "#.##") + " R\n" + kind, style = eDir > 0 ? label.style_label_down : label.style_label_up, color = color.new(kc, 10), textcolor = color.white, size = size.small, tooltip = "Entry " + str.tostring(eEntry, format.mintick) + "\nSL " + str.tostring(eSL, format.mintick) + "  (riziko " + str.tostring(eRisk, "#.##") + ")\nTP cieľ " + str.tostring(eTP, format.mintick) + "\nVýstup " + str.tostring(ex, format.mintick) + " (" + kind + ")\nTrvanie " + str.tostring(bar_index - eBar) + " sviečok")
+
+// ───────────────────────────── VIZUÁL OBCHODU ─────────────────────────────
+pE = plot(showTrade and inPos ? eEntry  : na, "Entry",       color = color.new(color.gray, 0), style = plot.style_linebr, linewidth = 1)
+pS = plot(showTrade and inPos ? curStop : na, "Stop",        color = trailOn ? cTrl : cSL,     style = plot.style_linebr, linewidth = 2)
+pT = plot(showTrade and inPos ? eTP     : na, "TP cieľ",     color = cTP,                      style = plot.style_linebr, linewidth = 1)
+pA = plot(showTrade and inPos ? actLvl  : na, "Aktivácia trailu", color = color.new(cTrl, 40), style = plot.style_linebr, linewidth = 1)
+fill(pE, pT, color = color.new(cTP, 85), title = "Zóna zisku")
+fill(pE, pS, color = color.new(cSL, 85), title = "Zóna rizika")
+
+// ───────────────────────────── TABUĽKA ─────────────────────────────
+var table tS = table.new(f_pos(statsPos), 2, 9, border_width = 1, border_color = color.new(color.gray, 70))
+if barstate.islast and showStats
+    color HD = color.new(color.gray, 60)
+    color BG = color.new(color.black, 100)
+    color TX = color.new(color.gray, 0)
+    float pf = strategy.grossloss > 0 ? strategy.grossprofit / strategy.grossloss : na
+    table.cell(tS, 0, 0, "Session Zone Strategy", text_color = color.white, bgcolor = HD, text_size = size.small)
+    table.cell(tS, 1, 0, "trail od " + str.tostring(trAct, "#") + " % · R " + str.tostring(rrTP, "#.#"), text_color = color.white, bgcolor = HD, text_size = size.small)
+    table.cell(tS, 0, 1, "Obchody", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 1, str.tostring(nTr), text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 0, 2, "Úspešnosť", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 2, nTr > 0 ? str.tostring(100.0 * nWin / nTr, "#.#") + " %" : "–", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 0, 3, "Výstupy SL / Trail / TP", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 3, str.tostring(nSL) + " / " + str.tostring(nTrail) + " / " + str.tostring(nTP), text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 0, 4, "Súčet R", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 4, (sumR >= 0 ? "+" : "") + str.tostring(sumR, "#.##"), text_color = sumR >= 0 ? cTP : cSL, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 0, 5, "Ø R na obchod", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 5, nTr > 0 ? str.tostring(sumR / nTr, "#.##") : "–", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 0, 6, "Najlepší / najhorší R", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 6, nTr > 0 ? str.tostring(bestR, "#.##") + " / " + str.tostring(worstR, "#.##") : "–", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 0, 7, "Profit factor", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 7, na(pf) ? "–" : str.tostring(pf, "#.##"), text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 0, 8, "Čistý zisk", text_color = TX, bgcolor = BG, text_size = size.small)
+    table.cell(tS, 1, 8, str.tostring(strategy.netprofit, "#.##") + " " + syminfo.currency, text_color = strategy.netprofit >= 0 ? cTP : cSL, bgcolor = BG, text_size = size.small)
+
+// ───────────────────────────── KONIEC ─────────────────────────────
+// Kód je vložený celý → zruš upozornenie "KÓD JE NEÚPLNÝ" zo začiatku súboru.
+if barstate.islast
+    table.cell(tWarn, 0, 0, "", bgcolor = color.new(color.black, 100))
+// KONIEC SÚBORU – Session Zone Strategy v1
