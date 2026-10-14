@@ -23,8 +23,17 @@ TradingView indikátor (Pine Script v6), ktorý vyhľadá sviečky podľa **zada
 - **Malé pásma** (prah pod hodnotou *Malé pásmo = prah pod*, štandardne 50) ukazujú iba posledných N výskytov (štandardne 10) – na každé pásmo a každý timeframe zvlášť. Voliteľne sa dajú aj malé sviečky farbiť po celej histórii.
 - Meranie: **rozsah** (high − low) alebo **telo** (|close − open|). Jednotka: **USD**, **pipy** (1 USD = 10 pip) alebo **%**. Filter smeru: obe / iba rastúce / iba klesajúce.
 
-### Tabuľka
-Riadok pre každé pásmo: stav, rozsah pásma, počet sviečok na grafovom timeframe a na každom vyššom timeframe (tooltip = posledný výskyt), dátum a veľkosť poslednej sviečky. Päta ukazuje celkový počet zo všetkých načítaných sviečok. Vyšší timeframe, ktorý nie je vyšší ako timeframe grafu, je označený `✖` a preskočený.
+### Objem dát na grafe
+Štandardne beží indikátor v **kompaktnom režime**, aby graf nebol preplnený:
+- **Štítky** pri sviečkach: iba posledných N (štandardne 30). Režimy: *Posledných N* / *Iba veľké pásma* / *Všetky* / *Žiadne*. Farbenie sviečok a tooltipy tým nie sú dotknuté.
+- **Tabuľka pásiem**: iba prah, stav a počty pre graf a zapnuté vyššie timeframy. Plná verzia (rozsah pásma, posledná sviečka, päta) sa zapne v Nastaveniach → ⑥.
+- **Tabuľka MA kontextu**: iba percentá a kľúčové riadky, počty sú v tooltipe bunky. Plná verzia (všetky riadky, počty aj percentá) v Nastaveniach → ⑧.
+
+### Tabuľka pásiem
+Riadok pre každé pásmo: stav `✔` / `✖`, počet sviečok na grafovom timeframe a na každom zapnutom vyššom timeframe (tooltip = posledný výskyt). Vyšší timeframe, ktorý nie je vyšší ako timeframe grafu, je preskočený (v plnej verzii označený `✖`).
+
+### Fibonacci poslednej sviečky
+Fibonacci úrovne sa kreslia z **poslednej označenej sviečky** (štandardne na grafovom timeframe, voliteľne z vyššieho TF A alebo z úplne poslednej živej sviečky grafu) a predlžujú sa doprava (štandardne 30 sviečok). Úroveň 0 je koniec pohybu sviečky (high pri rastúcej, low pri klesajúcej), úroveň 1 jej začiatok; dá sa otočiť. Úrovne sa zadávajú zoznamom (štandardne `0, 0.236, 0.382, 0.5, 0.618, 0.786, 1`), záporné hodnoty pridajú extenzie za koniec sviečky, hodnoty nad 1 hlbšie retracementy. Úroveň 0.618 má vlastnú farbu, štítok nesie úroveň aj cenu a značka `FIB ◄` ukazuje zdrojovú sviečku.
 
 ### Štatistika „kedy vznikajú“ – kontext kĺzavých priemerov
 Druhá tabuľka (štandardne vľavo hore) rozdelí sviečky každého pásma podľa stavu troch kĺzavých priemerov (rýchla / stredná / pomalá, štandardne EMA 20 / 50 / 200, typ a dĺžky sa dajú meniť). Každá bunka je `počet (% z pásma)`, stĺpec *Spolu* zhrnie zapnuté pásma:
