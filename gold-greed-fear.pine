@@ -720,8 +720,8 @@ plotshape(showShape and xGreedOut, "Exit Extreme Greed",  shape.circle,       lo
 //-----------------------------------------------------------------------------}
 //Alerts
 //-----------------------------------------------------------------------------{
-alertcondition(xFearIn,     "Extreme Fear (cross)",   "Gold G/F: score crossed below 25 on {{ticker}} {{interval}} · score {{plot("Greed / Fear score")}}")
-alertcondition(xGreedIn,    "Extreme Greed (cross)",  "Gold G/F: score crossed above 75 on {{ticker}} {{interval}} · score {{plot("Greed / Fear score")}}")
+alertcondition(xFearIn,     "Extreme Fear (cross)",   "Gold G/F: score crossed below 25 on {{ticker}} {{interval}} · score {{plot(\"Greed / Fear score\")}}")
+alertcondition(xGreedIn,    "Extreme Greed (cross)",  "Gold G/F: score crossed above 75 on {{ticker}} {{interval}} · score {{plot(\"Greed / Fear score\")}}")
 alertcondition(score < 25,  "Extreme Fear (state)",   "Gold G/F: score below 25 on {{ticker}} {{interval}}")
 alertcondition(score > 75,  "Extreme Greed (state)",  "Gold G/F: score above 75 on {{ticker}} {{interval}}")
 alertcondition(xFearOut or xGreedOut, "Exit extreme zone", "Gold G/F: score left an extreme zone on {{ticker}} {{interval}}")
