@@ -21,6 +21,12 @@
 //   ▸ Rámček s textom "H1 ▲ 62.4" = sviečka VYŠŠIEHO timeframu, ktorá spadla do pásma,
 //                              roztiahnutá cez celý jej čas na aktuálnom grafe
 //
+// ŠTATISTIKA "KEDY VZNIKAJÚ": druhá tabuľka rozdelí sviečky každého pásma podľa
+//   kontextu kĺzavých priemerov (rýchla / stredná / pomalá, štandardne EMA 20 / 50 / 200):
+//   usporiadanie MA, close nad/pod/medzi MA, s trendom / proti trendu, preťatie MA telom,
+//   čerstvý kríž, sklon rýchlej MA, vzdialenosť od pomalej MA a obchodná session.
+//   Tooltip štítku každej sviečky ukazuje jej MA kontext.
+//
 // PÁSMA: každé pásmo je interval od svojho prahu po nasledujúci vyšší prah
 //   (posledné pásmo je bez hornej hranice). Vypnuté pásmo = sviečky tej veľkosti
 //   sa NEZOBRAZIA (nepadnú do nižšieho pásma). Stav pásiem vidíš v tabuľke.
@@ -94,6 +100,21 @@ G_A = "⑦ Upozornenia"
 alertCur = input.bool(true, "Alert pri sviečke aktuálneho TF v zapnutom pásme (po zatvorení)", group = G_A)
 alertHtf = input.bool(true, "Alert pri sviečke vyššieho TF v zapnutom pásme (po zatvorení)", group = G_A)
 
+G_MA = "⑧ Kĺzavé priemery – kedy veľké sviečky vznikajú"
+maShow   = input.bool(true, "Kresliť MA na graf", group = G_MA, inline = "ms")
+maType   = input.string("EMA", "Typ", options = ["EMA", "SMA", "WMA", "HMA"], group = G_MA, inline = "ms")
+maLenF   = input.int(20, "Rýchla", minval = 1, group = G_MA, inline = "ml")
+maLenM   = input.int(50, "Stredná", minval = 1, group = G_MA, inline = "ml")
+maLenS   = input.int(200, "Pomalá", minval = 1, group = G_MA, inline = "ml")
+cMaF     = input.color(#29B6F6, "Farba rýchla", group = G_MA, inline = "mc")
+cMaM     = input.color(#FFA726, "stredná", group = G_MA, inline = "mc")
+cMaS     = input.color(#EF5350, "pomalá", group = G_MA, inline = "mc")
+freshN   = input.int(10, "Čerstvý kríž rýchla × stredná = do N sviečok", minval = 1, group = G_MA, tooltip = "Sviečka vznikla najviac N sviečok po prekrížení rýchlej a strednej MA.")
+slopeN   = input.int(5, "Sklon MA = porovnanie s hodnotou pred N sviečkami", minval = 1, group = G_MA)
+showMaT  = input.bool(true, "Tabuľka MA kontextu", group = G_MA, inline = "mt")
+maTblPos = input.string("Vľavo hore", "", options = ["Vpravo hore", "Vpravo stred", "Vpravo dole", "Vľavo hore", "Vľavo stred", "Vľavo dole", "Stred hore", "Stred dole"], group = G_MA, inline = "mt")
+maTblSz  = input.string("tiny", "Veľkosť textu MA tabuľky", options = ["tiny", "small", "normal", "large"], group = G_MA)
+
 // ───────────────────────────── POMOCNÉ ─────────────────────────────
 var float[] THS = array.from(th1, th2, th3, th4, th5, th6)
 var bool[]  ONS = array.from(on1, on2, on3, on4, on5, on6)
@@ -102,9 +123,15 @@ var color[] COL = array.from(c1, c2, c3, c4, c5, c6)
 string unitSfx = unit == "Cena (USD)" ? " $" : unit == "Pipy (1 USD = 10 pip)" ? " p" : " %"
 string numFmt  = unit == "Pipy (1 USD = 10 pip)" ? "#" : "#.##"
 
-f_size(float o, float h, float l, float c) =>
-    float raw = measure == "Rozsah (high − low)" ? h - l : math.abs(c - o)
+// Prevod cenového rozdielu do zvolenej jednotky (USD / pipy / % z ceny c).
+f_conv(float raw, float c) =>
     unit == "Cena (USD)" ? raw : unit == "Pipy (1 USD = 10 pip)" ? raw / (syminfo.mintick * 10) : c != 0 ? raw / c * 100 : 0.0
+
+f_size(float o, float h, float l, float c) =>
+    f_conv(measure == "Rozsah (high − low)" ? h - l : math.abs(c - o), c)
+
+f_ma(float src, simple int len) =>
+    maType == "EMA" ? ta.ema(src, len) : maType == "SMA" ? ta.sma(src, len) : maType == "WMA" ? ta.wma(src, len) : ta.hma(src, len)
 
 // Pásmo = index pásma s najvyšším prahom ≤ veľkosť (bez ohľadu na zapnutie). -1 = pod všetkými prahmi.
 f_tier(float s) =>
@@ -193,6 +220,91 @@ f_stat(int src, int t, int tm, float s) =>
     matrix.set(LASTT, src, t, tm)
     matrix.set(LASTS, src, t, s)
 
+// ───────────────────────────── KĹZAVÉ PRIEMERY (kontext) ─────────────────────────────
+float maF = f_ma(close, maLenF)
+float maM = f_ma(close, maLenM)
+float maS = f_ma(close, maLenS)
+plot(maShow ? maF : na, "MA rýchla", color = cMaF, linewidth = 1)
+plot(maShow ? maM : na, "MA stredná", color = cMaM, linewidth = 1)
+plot(maShow ? maS : na, "MA pomalá", color = cMaS, linewidth = 2)
+
+bool  maOk      = not na(maS) and not na(maM) and not na(maF)
+bool  stackBull = maOk and maF > maM and maM > maS
+bool  stackBear = maOk and maF < maM and maM < maS
+bool  aboveAll  = maOk and close > maF and close > maM and close > maS
+bool  belowAll  = maOk and close < maF and close < maM and close < maS
+float bodyHi    = math.max(open, close)
+float bodyLo    = math.min(open, close)
+bool  xF        = maOk and bodyLo <= maF and maF <= bodyHi
+bool  xM        = maOk and bodyLo <= maM and maM <= bodyHi
+bool  xS        = maOk and bodyLo <= maS and maS <= bodyHi
+int   sinceX    = ta.barssince(ta.cross(maF, maM))
+bool  freshX    = maOk and not na(sinceX) and sinceX <= freshN
+bool  fRise     = maOk and maF > maF[slopeN]
+bool  fFall     = maOk and maF < maF[slopeN]
+float distS     = maOk ? f_conv(close - maS, close) : 0.0
+
+// Štatistika MA kontextu: riadok = ukazovateľ, stĺpec = pásmo (iba aktuálny timeframe).
+int R_N   = 0
+int R_SB  = 1
+int R_SBE = 2
+int R_SM  = 3
+int R_AB  = 4
+int R_BE  = 5
+int R_BT  = 6
+int R_WT  = 7
+int R_AT  = 8
+int R_NT  = 9
+int R_XF  = 10
+int R_XM  = 11
+int R_XS  = 12
+int R_FR  = 13
+int R_RI  = 14
+int R_FA  = 15
+int R_AS  = 16
+int R_LO  = 17
+int R_OV  = 18
+int R_NY  = 19
+var matrix<int>   MST  = matrix.new<int>(20, 6, 0)
+var float[]       DSUM = array.new<float>(6, 0.0)   // súčet vzdialeností od pomalej MA (so znamienkom)
+var float[]       DABS = array.new<float>(6, 0.0)   // súčet absolútnych vzdialeností
+
+f_inc(int r, int t) => matrix.set(MST, r, t, matrix.get(MST, r, t) + 1)
+
+f_maCtx(int t, bool bull) =>
+    string ctx = ""
+    if maOk
+        f_inc(R_N, t)
+        f_inc(stackBull ? R_SB : stackBear ? R_SBE : R_SM, t)
+        f_inc(aboveAll ? R_AB : belowAll ? R_BE : R_BT, t)
+        f_inc((stackBull and bull) or (stackBear and not bull) ? R_WT : (stackBull and not bull) or (stackBear and bull) ? R_AT : R_NT, t)
+        if xF
+            f_inc(R_XF, t)
+        if xM
+            f_inc(R_XM, t)
+        if xS
+            f_inc(R_XS, t)
+        if freshX
+            f_inc(R_FR, t)
+        if fRise
+            f_inc(R_RI, t)
+        if fFall
+            f_inc(R_FA, t)
+        array.set(DSUM, t, array.get(DSUM, t) + distS)
+        array.set(DABS, t, array.get(DABS, t) + math.abs(distS))
+        ctx := (stackBull ? "bullish (F>M>S)" : stackBear ? "bearish (F<M<S)" : "zmiešané") + ", close " + (aboveAll ? "nad všetkými MA" : belowAll ? "pod všetkými MA" : "medzi MA")
+        ctx += (stackBull or stackBear) ? ((stackBull and bull) or (stackBear and not bull) ? ", s trendom" : ", proti trendu") : ""
+        ctx += xF ? ", preťala rýchlu" : ""
+        ctx += xM ? ", preťala strednú" : ""
+        ctx += xS ? ", preťala pomalú" : ""
+        ctx += freshX ? ", čerstvý kríž (" + str.tostring(sinceX) + " sv.)" : ""
+        ctx += ", od pomalej MA " + (distS >= 0 ? "+" : "") + f_sizeTxt(distS)
+    else
+        ctx := "MA ešte nie sú vypočítané (rozbeh)"
+    int hr = hour(time, tz)
+    f_inc(hr < 9 ? R_AS : hr < 15 ? R_LO : hr < 18 ? R_OV : R_NY, t)
+    ctx
+
 // ───────────────────────────── AKTUÁLNY TIMEFRAME ─────────────────────────────
 int   chartSec = timeframe.in_seconds()
 int   barEnd   = na(time_close) ? time + chartSec * 1000 : time_close
@@ -209,8 +321,9 @@ plot(curSize, "Veľkosť sviečky", display = display.data_window)
 
 if curHit and barstate.isconfirmed
     f_stat(0, curTier, time, curSize)
+    string maCtx = f_maCtx(curTier, curBull)
     string txt = (curBull ? "▲ " : "▼ ") + f_sizeTxt(curSize)
-    string tip = "Sviečka " + f_tfName(timeframe.period) + "  " + str.format_time(time, "dd.MM.yyyy HH:mm", tz) + "\n" + (curBull ? "Rastúca ▲" : "Klesajúca ▼") + "  " + f_sizeTxt(curSize) + "\nPásmo " + str.tostring(curTier + 1) + " (od " + f_sizeTxt(array.get(THS, curTier)) + ")" + (f_small(curTier) ? "\nMalé pásmo – zobrazuje sa posledných " + str.tostring(smallKeep) : "")
+    string tip = "Sviečka " + f_tfName(timeframe.period) + "  " + str.format_time(time, "dd.MM.yyyy HH:mm", tz) + "\n" + (curBull ? "Rastúca ▲" : "Klesajúca ▼") + "  " + f_sizeTxt(curSize) + "\nPásmo " + str.tostring(curTier + 1) + " (od " + f_sizeTxt(array.get(THS, curTier)) + ")" + (f_small(curTier) ? "\nMalé pásmo – zobrazuje sa posledných " + str.tostring(smallKeep) : "") + "\nMA: " + maCtx
     if f_small(curTier)
         box b = box.new(time, high, barEnd, low, xloc = xloc.bar_time, border_color = curCol, border_width = 2, bgcolor = color.new(curCol, cTr))
         f_keepBox(curTier, b)
@@ -317,6 +430,103 @@ if showTbl and barstate.islast
             totalCur += matrix.get(CNT, 0, i)
     string foot = "Spolu na " + curName + ": " + str.tostring(totalCur) + " z " + str.tostring(bar_index + 1) + " sviečok  ·  ⏱ malé pásma (prah < " + f_sizeTxt(smallBelow) + "): posledných " + str.tostring(smallKeep) + "  ·  vypnutie pásma: Nastavenia → ②"
     table.cell(tS, 0, 8, foot, text_color = #B0BEC5, bgcolor = HD, text_size = f_tsize(ts), text_halign = text.align_left)
+
+// ───────────────────────────── TABUĽKA MA KONTEXTU ─────────────────────────────
+var table tMA = table.new(f_tblPos(maTblPos), 8, 34, border_width = 1, border_color = color.new(color.white, 85))
+int[] SEC_ROWS = array.from(3, 7, 11, 15, 19, 21, 24, 27)
+if showMaT and barstate.isfirst
+    table.merge_cells(tMA, 0, 0, 7, 0)
+    for r in SEC_ROWS
+        table.merge_cells(tMA, 0, r, 7, r)
+    table.merge_cells(tMA, 0, 33, 7, 33)
+
+// Riadok s počtami: n (percento z celkového počtu pásma podľa riadku `base`).
+f_maRow(int row, string lbl, int r, int base, string tipTxt) =>
+    color BG = #37474F
+    color TX = color.white
+    color OFFC = #607D8B
+    table.cell(tMA, 0, row, lbl, text_color = TX, bgcolor = BG, text_size = f_tsize(maTblSz), text_halign = text.align_left, tooltip = tipTxt)
+    int sumN = 0
+    int sumB = 0
+    for t = 0 to 5
+        bool on = array.get(ONS, t)
+        int n = matrix.get(MST, r, t)
+        int b = base < 0 ? matrix.get(CNT, 0, t) : matrix.get(MST, base, t)
+        if on
+            sumN += n
+            sumB += b
+        string txt = not on ? "·" : b > 0 ? str.tostring(n) + " (" + str.tostring(100.0 * n / b, "0") + "%)" : "0"
+        float pct = on and b > 0 ? 100.0 * n / b : 0.0
+        table.cell(tMA, 1 + t, row, txt, text_color = on and n > 0 ? TX : OFFC, bgcolor = on and n > 0 ? color.new(array.get(COL, t), math.round(95 - math.min(pct, 100) * 0.55)) : BG, text_size = f_tsize(maTblSz))
+    table.cell(tMA, 7, row, sumB > 0 ? str.tostring(sumN) + " (" + str.tostring(100.0 * sumN / sumB, "0") + "%)" : "0", text_color = sumN > 0 ? TX : OFFC, bgcolor = #455A64, text_size = f_tsize(maTblSz))
+
+// Riadok s priemernou vzdialenosťou (súčet / počet sviečok s MA).
+f_maAvgRow(int row, string lbl, float[] sums, string tipTxt) =>
+    color BG = #37474F
+    color TX = color.white
+    color OFFC = #607D8B
+    table.cell(tMA, 0, row, lbl, text_color = TX, bgcolor = BG, text_size = f_tsize(maTblSz), text_halign = text.align_left, tooltip = tipTxt)
+    float sumV = 0.0
+    int sumN = 0
+    for t = 0 to 5
+        bool on = array.get(ONS, t)
+        int n = matrix.get(MST, R_N, t)
+        float v = array.get(sums, t)
+        if on
+            sumV += v
+            sumN += n
+        string txt = not on ? "·" : n > 0 ? (v / n >= 0 ? "+" : "") + f_sizeTxt(v / n) : "—"
+        table.cell(tMA, 1 + t, row, txt, text_color = on and n > 0 ? TX : OFFC, bgcolor = BG, text_size = f_tsize(maTblSz))
+    table.cell(tMA, 7, row, sumN > 0 ? (sumV / sumN >= 0 ? "+" : "") + f_sizeTxt(sumV / sumN) : "—", text_color = sumN > 0 ? TX : OFFC, bgcolor = #455A64, text_size = f_tsize(maTblSz))
+
+f_maSec(int row, string txt) =>
+    table.cell(tMA, 0, row, txt, text_color = #B0BEC5, bgcolor = #263238, text_size = f_tsize(maTblSz), text_halign = text.align_left)
+
+if showMaT and barstate.islast
+    color HD = #263238
+    color TX = color.white
+    string mt = maType + " " + str.tostring(maLenF) + " / " + str.tostring(maLenM) + " / " + str.tostring(maLenS)
+    table.cell(tMA, 0, 0, "KEDY VZNIKAJÚ VEĽKÉ SVIEČKY  ·  kontext MA " + mt + "  ·  " + f_tfName(timeframe.period) + "  ·  n (% z pásma)", text_color = TX, bgcolor = HD, text_size = f_tsize(maTblSz), text_halign = text.align_left, tooltip = "Štatistika iba pre sviečky aktuálneho timeframu. Percento = podiel z počtu sviečok pásma, pri ktorých boli MA už vypočítané. F = rýchla, M = stredná, S = pomalá MA.")
+    table.cell(tMA, 0, 1, "Ukazovateľ", text_color = TX, bgcolor = HD, text_size = f_tsize(maTblSz), text_halign = text.align_left)
+    for t = 0 to 5
+        bool on = array.get(ONS, t)
+        color cc = array.get(COL, t)
+        table.cell(tMA, 1 + t, 1, "P" + str.tostring(t + 1) + " ≥" + str.tostring(array.get(THS, t), numFmt), text_color = on ? f_txtOn(cc) : #607D8B, bgcolor = on ? cc : HD, text_size = f_tsize(maTblSz), tooltip = on ? "Pásmo " + str.tostring(t + 1) + " od " + f_sizeTxt(array.get(THS, t)) : "Pásmo vypnuté")
+    table.cell(tMA, 7, 1, "Spolu", text_color = TX, bgcolor = HD, text_size = f_tsize(maTblSz))
+    f_maRow(2, "Sviečok s MA / všetky", R_N, -1, "Počet sviečok pásma, pri ktorých už boli všetky tri MA vypočítané (percento zo všetkých sviečok pásma).")
+    f_maSec(3, "USPORIADANIE MA")
+    f_maRow(4, "Bullish  F > M > S", R_SB, R_N, "Rýchla nad strednou nad pomalou – rastúci trend.")
+    f_maRow(5, "Bearish  F < M < S", R_SBE, R_N, "Rýchla pod strednou pod pomalou – klesajúci trend.")
+    f_maRow(6, "Zmiešané (bez trendu)", R_SM, R_N, "MA prepletené – range / prechod.")
+    f_maSec(7, "CLOSE SVIEČKY VS MA")
+    f_maRow(8, "Nad všetkými MA", R_AB, R_N, "")
+    f_maRow(9, "Pod všetkými MA", R_BE, R_N, "")
+    f_maRow(10, "Medzi MA", R_BT, R_N, "")
+    f_maSec(11, "SMER SVIEČKY VS TREND MA")
+    f_maRow(12, "S trendom", R_WT, R_N, "Rastúca sviečka v bullish usporiadaní alebo klesajúca v bearish.")
+    f_maRow(13, "Proti trendu", R_AT, R_N, "Klesajúca sviečka v bullish usporiadaní alebo rastúca v bearish.")
+    f_maRow(14, "Bez trendu (zmiešané MA)", R_NT, R_N, "")
+    f_maSec(15, "TELO SVIEČKY PREŤALO MA")
+    f_maRow(16, "Rýchlu  (" + str.tostring(maLenF) + ")", R_XF, R_N, "MA leží medzi open a close sviečky.")
+    f_maRow(17, "Strednú (" + str.tostring(maLenM) + ")", R_XM, R_N, "")
+    f_maRow(18, "Pomalú  (" + str.tostring(maLenS) + ")", R_XS, R_N, "")
+    f_maSec(19, "ČERSTVÝ KRÍŽ RÝCHLA × STREDNÁ")
+    f_maRow(20, "Do " + str.tostring(freshN) + " sviečok po kríži", R_FR, R_N, "")
+    f_maSec(21, "SKLON RÝCHLEJ MA (vs pred " + str.tostring(slopeN) + " sv.)")
+    f_maRow(22, "Stúpa", R_RI, R_N, "")
+    f_maRow(23, "Klesá", R_FA, R_N, "")
+    f_maSec(24, "VZDIALENOSŤ CLOSE OD POMALEJ MA")
+    f_maAvgRow(25, "Ø so znamienkom", DSUM, "Kladné = nad pomalou MA, záporné = pod ňou.")
+    f_maAvgRow(26, "Ø absolútna (natiahnutie)", DABS, "Priemerná vzdialenosť bez ohľadu na smer – ako ďaleko od pomalej MA tieto sviečky vznikajú.")
+    f_maSec(27, "SESSION (čas " + tz + ")")
+    f_maRow(28, "Ázia  00:00–08:59", R_AS, -1, "Percento zo všetkých sviečok pásma.")
+    f_maRow(29, "Londýn  09:00–14:59", R_LO, -1, "")
+    f_maRow(30, "Londýn + NY  15:00–17:59", R_OV, -1, "")
+    f_maRow(31, "New York  18:00–23:59", R_NY, -1, "")
+    table.cell(tMA, 0, 32, "", bgcolor = HD, text_size = f_tsize(maTblSz))
+    for t = 0 to 6
+        table.cell(tMA, 1 + t, 32, "", bgcolor = HD, text_size = f_tsize(maTblSz))
+    table.cell(tMA, 0, 33, "Tooltip štítku každej sviečky ukazuje jej MA kontext. Vyššie timeframy sa do MA štatistiky nepočítajú.", text_color = #B0BEC5, bgcolor = HD, text_size = f_tsize(maTblSz), text_halign = text.align_left)
 
 // ───────────────────────────── KONIEC ─────────────────────────────
 // Kód je vložený celý → zruš upozornenie "KÓD JE NEÚPLNÝ" zo začiatku súboru.

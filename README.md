@@ -26,6 +26,19 @@ TradingView indikátor (Pine Script v6), ktorý vyhľadá sviečky podľa **zada
 ### Tabuľka
 Riadok pre každé pásmo: stav, rozsah pásma, počet sviečok na grafovom timeframe a na každom vyššom timeframe (tooltip = posledný výskyt), dátum a veľkosť poslednej sviečky. Päta ukazuje celkový počet zo všetkých načítaných sviečok. Vyšší timeframe, ktorý nie je vyšší ako timeframe grafu, je označený `✖` a preskočený.
 
+### Štatistika „kedy vznikajú“ – kontext kĺzavých priemerov
+Druhá tabuľka (štandardne vľavo hore) rozdelí sviečky každého pásma podľa stavu troch kĺzavých priemerov (rýchla / stredná / pomalá, štandardne EMA 20 / 50 / 200, typ a dĺžky sa dajú meniť). Každá bunka je `počet (% z pásma)`, stĺpec *Spolu* zhrnie zapnuté pásma:
+- **Usporiadanie MA**: bullish (F > M > S), bearish (F < M < S), zmiešané.
+- **Close vs MA**: nad všetkými, pod všetkými, medzi.
+- **Smer sviečky vs trend MA**: s trendom, proti trendu, bez trendu.
+- **Telo sviečky preťalo MA**: rýchlu, strednú, pomalú (MA leží medzi open a close).
+- **Čerstvý kríž** rýchlej a strednej MA do N sviečok (štandardne 10).
+- **Sklon rýchlej MA**: stúpa / klesá oproti hodnote pred N sviečkami.
+- **Vzdialenosť close od pomalej MA**: priemer so znamienkom a absolútny priemer (natiahnutie) v zvolenej jednotke.
+- **Session** podľa času Europe/Prague: Ázia 00–09, Londýn 09–15, Londýn + NY 15–18, New York 18–24.
+
+Tooltip štítku každej sviečky ukazuje jej konkrétny MA kontext. Štatistika sa počíta iba pre sviečky aktuálneho timeframu; percentá sú z počtu sviečok, pri ktorých už boli MA vypočítané (prvých ~200 sviečok histórie sa pri EMA 200 nepočíta). MA sa dajú kresliť na graf alebo skryť.
+
 ### Upozornenia
 Po zatvorení sviečky v zapnutom pásme (na grafe aj na vyšších timeframoch) indikátor volá `alert()`: v TradingView vytvor alert na indikátor s voľbou *Any alert() function call*.
 
