@@ -14,7 +14,8 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**, aktuálne **v5**. Zobraz
 |---|---|
 | Tyrkysová zóna | entry → TP. Výška je zisk, šírka je čas od postu po TP hit. |
 | Farebná zóna pod entry | **max ponor** (MAE), farba podľa triedy ponoru. |
-| Merač ponoru | zvislá šípka entry → dno ponoru v strede zóny, štítok `▼ 59.48 $ · 595 pip · 1.44 %` (od 10 $). Voliteľná stupnica každých 10 $. |
+| Merač ponoru | zvislá šípka entry → dno ponoru v strede zóny, štítok `▼ 23.78 $ · 238 pip · 0.58 %` (od 10 $, na H4+ od 30 $). Voliteľná stupnica každých 10 $ (kreslí sa od najnovších obchodov v rámci limitu 500 čiar). |
+| „od postu“ | 7.–13.10 zdroj udáva ponor od ceny v čase postu. Indikátor ho prepočíta na ponor od entry (známe dno, alebo cena postu z grafu do H1); na vyšších TF ostane hodnota „od postu“ a štítok to uvádza. |
 | Bodkovaná diagonála + ◆ | dráha od entry k bodu, kde padol TP |
 | ● | čas vyplnenia entry (ak je známy) |
 | Žltá prerušovaná čiara | prikup / layer (napr. 2.10 4168.60) |
@@ -24,7 +25,7 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**, aktuálne **v5**. Zobraz
 | Prvok | Význam |
 |---|---|
 | Šípka entry → aktuálna cena | zelená v zisku, červená v strate |
-| Živý merač vpravo od poslednej sviečky | vzdialenosť entry ↔ cena v $, pipoch a %, prepočet na lot, vzdialenosť do TP a max ponor; stupnica každých 10 $ (pri veľkej vzdialenosti väčší krok) |
+| Živý merač vpravo od poslednej sviečky | šípka entry → cena so stupnicou každých 10 $ (pri veľkej vzdialenosti väčší krok) a spoločný štítok: P/L v $, pipoch, % a na lot, do TP, max ponor, dno a jeho čas, ako dlho beží |
 | Bodkovaná čiara | najhlbší ponor, merač ponoru pri čase postu |
 | Tabuľka „OTVORENÉ – MERAČ PONORU“ | P/L, pipy, poloha ceny medzi dnom ponoru a TP, do TP, max ponor, ako dlho beží |
 
