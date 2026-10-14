@@ -1,0 +1,325 @@
+//@version=6
+// =====================================================================
+// CANDLE SIZE SCANNER v1  (veľké sviečky • pásma veľkostí • viac timeframov)
+// Vyhľadá sviečky, ktorých veľkosť (rozsah alebo telo) spadá do zadaných
+// pásiem (štandardne 20 / 30 / 50 / 100 / 150 / 200 USD), farebne ich označí
+// a spočíta ich v tabuľke – na aktuálnom timeframe aj na vyšších timeframoch.
+//
+// INŠTALÁCIA (TradingView):
+//   1. Otvor graf (napr. XAUUSD M5 – H1), dole klikni "Pine Editor".
+//   2. Zmaž obsah editora, vlož CELÝ tento súbor (Ctrl+A, Ctrl+V).
+//      Posledný riadok je "// KONIEC SÚBORU – Candle Size Scanner v1".
+//      Ak sa vloží iba časť, na grafe sa zobrazí červené upozornenie "KÓD JE NEÚPLNÝ".
+//   3. "Uložiť" (napr. "Candle Size Scanner") → "Pridať do grafu".
+//
+// ČO VIDÍŠ NA GRAFE:
+//   ▸ Zafarbená sviečka      = sviečka aktuálneho timeframu spadla do zapnutého pásma
+//                              (veľké pásma, bez obmedzenia spätne)
+//   ▸ Rámček okolo sviečky   = malé pásmo (prah pod "Malá veľkosť", štandardne 50):
+//                              zobrazí sa iba posledných N (štandardne 10) na každé pásmo
+//   ▸ Štítok ▲ / ▼ + číslo   = smer a veľkosť sviečky v zvolenej jednotke
+//   ▸ Rámček s textom "H1 ▲ 62.4" = sviečka VYŠŠIEHO timeframu, ktorá spadla do pásma,
+//                              roztiahnutá cez celý jej čas na aktuálnom grafe
+//
+// PÁSMA: každé pásmo je interval od svojho prahu po nasledujúci vyšší prah
+//   (posledné pásmo je bez hornej hranice). Vypnuté pásmo = sviečky tej veľkosti
+//   sa NEZOBRAZIA (nepadnú do nižšieho pásma). Stav pásiem vidíš v tabuľke.
+//   Pine tabuľky nie sú klikateľné – pásmo vypneš v Nastaveniach, skupina "② Veľkosti".
+//
+// LIMITY TRADINGVIEW: na grafe môže byť naraz max. 500 štítkov a 500 rámčekov.
+//   Pri prekročení TradingView automaticky zmaže najstaršie. Farbenie sviečok limit nemá.
+// =====================================================================
+indicator("Candle Size Scanner v1 (veľké sviečky • pásma • MTF)", shorttitle = "Candle Size Scanner", overlay = true, max_boxes_count = 500, max_labels_count = 500)
+
+// Kontrola úplnosti: upozornenie sa nastaví tu a vymaže až na úplnom konci súboru.
+var table tWarn = table.new(position.middle_center, 1, 1)
+if barstate.islast
+    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód (posledný riadok\n\"// KONIEC SÚBORU – Candle Size Scanner v1\") a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
+
+// ───────────────────────────── VSTUPY ─────────────────────────────
+G_M = "① Meranie"
+measure = input.string("Rozsah (high − low)", "Čo merať", options = ["Rozsah (high − low)", "Telo (|close − open|)"], group = G_M, tooltip = "Rozsah = celá sviečka vrátane knôtov. Telo = iba otvorenie → zatvorenie.")
+unit    = input.string("Cena (USD)", "Jednotka", options = ["Cena (USD)", "Pipy (1 USD = 10 pip)", "Percentá (%)"], group = G_M, tooltip = "Prahy pásiem sa zadávajú v tejto jednotke. Pri XAUUSD: 1 USD = 10 pip. Percentá = veľkosť / close × 100.")
+dirF    = input.string("Obe", "Smer sviečky", options = ["Obe", "Iba rastúce ▲", "Iba klesajúce ▼"], group = G_M)
+tz      = input.string("Europe/Prague", "Časová zóna textov", group = G_M, tooltip = "Europe/Prague = rovnaký čas ako Bratislava (SEČ/SELČ).")
+
+G_S = "② Veľkosti sviečok (pásma – zadávaj vzostupne)"
+on1 = input.bool(true, "", group = G_S, inline = "s1")
+th1 = input.float(20.0, "Pásmo 1 od", minval = 0, step = 1, group = G_S, inline = "s1")
+c1  = input.color(#FFD600, "", group = G_S, inline = "s1")
+on2 = input.bool(true, "", group = G_S, inline = "s2")
+th2 = input.float(30.0, "Pásmo 2 od", minval = 0, step = 1, group = G_S, inline = "s2")
+c2  = input.color(#FF9100, "", group = G_S, inline = "s2")
+on3 = input.bool(true, "", group = G_S, inline = "s3")
+th3 = input.float(50.0, "Pásmo 3 od", minval = 0, step = 1, group = G_S, inline = "s3")
+c3  = input.color(#FF3D00, "", group = G_S, inline = "s3")
+on4 = input.bool(true, "", group = G_S, inline = "s4")
+th4 = input.float(100.0, "Pásmo 4 od", minval = 0, step = 1, group = G_S, inline = "s4")
+c4  = input.color(#D500F9, "", group = G_S, inline = "s4")
+on5 = input.bool(true, "", group = G_S, inline = "s5")
+th5 = input.float(150.0, "Pásmo 5 od", minval = 0, step = 1, group = G_S, inline = "s5")
+c5  = input.color(#2979FF, "", group = G_S, inline = "s5")
+on6 = input.bool(true, "", group = G_S, inline = "s6")
+th6 = input.float(200.0, "Pásmo 6 od", minval = 0, step = 1, group = G_S, inline = "s6")
+c6  = input.color(#00E5FF, "", group = G_S, inline = "s6")
+
+G_L = "③ Limit pre malé veľkosti"
+smallBelow = input.float(50.0, "Malé pásmo = prah pod", minval = 0, step = 1, group = G_L, tooltip = "Pásma s prahom pod touto hodnotou (štandardne 20 a 30) sa považujú za malé: na grafe sa ukáže iba posledných N výskytov na každé pásmo a každý timeframe. Pásma s prahom od tejto hodnoty nahor sú bez obmedzenia spätne.")
+smallKeep  = input.int(10, "Pri malých ukázať posledných", minval = 1, maxval = 200, group = G_L)
+smallBarCl = input.bool(false, "Farbiť aj malé sviečky (bez limitu spätne)", group = G_L, tooltip = "Zapni, ak chceš aj malé pásma vidieť ako zafarbené sviečky po celej histórii. Rámčeky a štítky ostanú obmedzené na posledných N.")
+
+G_H = "④ Vyššie timeframy (musia byť vyššie ako timeframe grafu)"
+hOn1 = input.bool(true, "", group = G_H, inline = "h1")
+hTf1 = input.timeframe("15", "TF A", group = G_H, inline = "h1")
+hOn2 = input.bool(true, "", group = G_H, inline = "h2")
+hTf2 = input.timeframe("60", "TF B", group = G_H, inline = "h2")
+hOn3 = input.bool(true, "", group = G_H, inline = "h3")
+hTf3 = input.timeframe("240", "TF C", group = G_H, inline = "h3")
+hOn4 = input.bool(false, "", group = G_H, inline = "h4")
+hTf4 = input.timeframe("D", "TF D", group = G_H, inline = "h4")
+hTr  = input.int(85, "Priehľadnosť výplne rámčekov HTF (0 = plné, 100 = bez výplne)", minval = 0, maxval = 100, group = G_H)
+hTxt = input.bool(true, "Text v rámčeku HTF (TF, smer, veľkosť)", group = G_H)
+
+G_V = "⑤ Vizuál"
+showLbl = input.bool(true, "Štítok ▲/▼ s veľkosťou pri sviečke", group = G_V)
+lblSize = input.string("small", "Veľkosť štítkov", options = ["tiny", "small", "normal", "large"], group = G_V)
+cTr     = input.int(70, "Priehľadnosť rámčeka malých sviečok", minval = 0, maxval = 100, group = G_V)
+
+G_T = "⑥ Tabuľka"
+showTbl = input.bool(true, "Zobraziť tabuľku pásiem", group = G_T, inline = "t")
+tblPos  = input.string("Vpravo hore", "", options = ["Vpravo hore", "Vpravo stred", "Vpravo dole", "Vľavo hore", "Vľavo stred", "Vľavo dole", "Stred hore", "Stred dole"], group = G_T, inline = "t")
+tblSize = input.string("small", "Veľkosť textu", options = ["tiny", "small", "normal", "large"], group = G_T)
+
+G_A = "⑦ Upozornenia"
+alertCur = input.bool(true, "Alert pri sviečke aktuálneho TF v zapnutom pásme (po zatvorení)", group = G_A)
+alertHtf = input.bool(true, "Alert pri sviečke vyššieho TF v zapnutom pásme (po zatvorení)", group = G_A)
+
+// ───────────────────────────── POMOCNÉ ─────────────────────────────
+var float[] THS = array.from(th1, th2, th3, th4, th5, th6)
+var bool[]  ONS = array.from(on1, on2, on3, on4, on5, on6)
+var color[] COL = array.from(c1, c2, c3, c4, c5, c6)
+
+string unitSfx = unit == "Cena (USD)" ? " $" : unit == "Pipy (1 USD = 10 pip)" ? " p" : " %"
+string numFmt  = unit == "Pipy (1 USD = 10 pip)" ? "#" : "#.##"
+
+f_size(float o, float h, float l, float c) =>
+    float raw = measure == "Rozsah (high − low)" ? h - l : math.abs(c - o)
+    unit == "Cena (USD)" ? raw : unit == "Pipy (1 USD = 10 pip)" ? raw / (syminfo.mintick * 10) : c != 0 ? raw / c * 100 : 0.0
+
+// Pásmo = index pásma s najvyšším prahom ≤ veľkosť (bez ohľadu na zapnutie). -1 = pod všetkými prahmi.
+f_tier(float s) =>
+    int   t    = -1
+    float best = na
+    for i = 0 to 5
+        float th = array.get(THS, i)
+        if s >= th and (na(best) or th >= best)
+            best := th
+            t    := i
+    t
+
+f_dirOk(float o, float c) =>
+    dirF == "Obe" or (dirF == "Iba rastúce ▲" and c >= o) or (dirF == "Iba klesajúce ▼" and c < o)
+
+f_small(int t) => array.get(THS, t) < smallBelow
+
+f_tfName(string tf) =>
+    int s = timeframe.in_seconds(tf)
+    string r = ""
+    if str.contains(tf, "M") and not str.contains(tf, "S")
+        r := "MN" + str.replace(tf, "M", "")
+    else if s < 60
+        r := "S" + str.tostring(s)
+    else if s < 3600
+        r := "M" + str.tostring(s / 60, "#")
+    else if s < 86400
+        r := "H" + str.tostring(s / 3600, "#")
+    else if s < 604800
+        r := "D" + str.tostring(s / 86400, "#")
+    else
+        r := "W" + str.tostring(s / 604800, "#")
+    r
+
+f_txtOn(color c) =>
+    float lum = 0.299 * color.r(c) + 0.587 * color.g(c) + 0.114 * color.b(c)
+    lum > 150 ? color.black : color.white
+
+f_sizeTxt(float s) => str.tostring(s, numFmt) + unitSfx
+
+f_tblPos(string p) =>
+    p == "Vpravo hore" ? position.top_right : p == "Vpravo stred" ? position.middle_right : p == "Vpravo dole" ? position.bottom_right : p == "Vľavo hore" ? position.top_left : p == "Vľavo stred" ? position.middle_left : p == "Vľavo dole" ? position.bottom_left : p == "Stred hore" ? position.top_center : position.bottom_center
+
+f_tsize(string s) => s == "tiny" ? size.tiny : s == "small" ? size.small : s == "normal" ? size.normal : size.large
+
+// ───────────── Správa objektov malých pásiem (posledných N na kľúč) ─────────────
+// kľúč = zdroj * 10 + pásmo   (zdroj 0 = aktuálny TF, 1–4 = vyššie TF A–D)
+var box[]   mBox    = array.new<box>()
+var int[]   mBoxKey = array.new<int>()
+var label[] mLbl    = array.new<label>()
+var int[]   mLblKey = array.new<int>()
+
+f_keepBox(int key, box b) =>
+    array.push(mBox, b)
+    array.push(mBoxKey, key)
+    int n = 0
+    for k in mBoxKey
+        if k == key
+            n += 1
+    if n > smallKeep
+        int idx = array.indexof(mBoxKey, key)
+        box.delete(array.get(mBox, idx))
+        array.remove(mBox, idx)
+        array.remove(mBoxKey, idx)
+
+f_keepLbl(int key, label lb) =>
+    array.push(mLbl, lb)
+    array.push(mLblKey, key)
+    int n = 0
+    for k in mLblKey
+        if k == key
+            n += 1
+    if n > smallKeep
+        int idx = array.indexof(mLblKey, key)
+        label.delete(array.get(mLbl, idx))
+        array.remove(mLbl, idx)
+        array.remove(mLblKey, idx)
+
+// ───────────── Štatistiky: riadok = zdroj (0 = aktuálny TF, 1–4 = HTF), stĺpec = pásmo ─────────────
+var matrix<int>   CNT   = matrix.new<int>(5, 6, 0)
+var matrix<int>   LASTT = matrix.new<int>(5, 6, 0)
+var matrix<float> LASTS = matrix.new<float>(5, 6, 0.0)
+
+f_stat(int src, int t, int tm, float s) =>
+    matrix.set(CNT, src, t, matrix.get(CNT, src, t) + 1)
+    matrix.set(LASTT, src, t, tm)
+    matrix.set(LASTS, src, t, s)
+
+// ───────────────────────────── AKTUÁLNY TIMEFRAME ─────────────────────────────
+int   chartSec = timeframe.in_seconds()
+int   barEnd   = na(time_close) ? time + chartSec * 1000 : time_close
+float curSize  = f_size(open, high, low, close)
+int   curTier = f_tier(curSize)
+int   curT0   = math.max(curTier, 0)                       // bezpečný index (pásmo -1 = pod prahmi)
+bool  curHit  = curTier >= 0 and array.get(ONS, curT0) and f_dirOk(open, close)
+bool  curBull = close >= open
+color curCol  = curHit ? array.get(COL, curT0) : na
+
+// Farbenie sviečok: veľké pásma vždy, malé iba ak je to zapnuté (inak rámček s limitom).
+barcolor(curHit and (not f_small(curT0) or smallBarCl) ? curCol : na, title = "Sviečka v pásme")
+plot(curSize, "Veľkosť sviečky", display = display.data_window)
+
+if curHit and barstate.isconfirmed
+    f_stat(0, curTier, time, curSize)
+    string txt = (curBull ? "▲ " : "▼ ") + f_sizeTxt(curSize)
+    string tip = "Sviečka " + f_tfName(timeframe.period) + "  " + str.format_time(time, "dd.MM.yyyy HH:mm", tz) + "\n" + (curBull ? "Rastúca ▲" : "Klesajúca ▼") + "  " + f_sizeTxt(curSize) + "\nPásmo " + str.tostring(curTier + 1) + " (od " + f_sizeTxt(array.get(THS, curTier)) + ")" + (f_small(curTier) ? "\nMalé pásmo – zobrazuje sa posledných " + str.tostring(smallKeep) : "")
+    if f_small(curTier)
+        box b = box.new(time, high, barEnd, low, xloc = xloc.bar_time, border_color = curCol, border_width = 2, bgcolor = color.new(curCol, cTr))
+        f_keepBox(curTier, b)
+        if showLbl
+            label lb = label.new(time, curBull ? high : low, txt, xloc = xloc.bar_time, style = curBull ? label.style_label_down : label.style_label_up, color = curCol, textcolor = f_txtOn(curCol), size = f_tsize(lblSize), tooltip = tip)
+            f_keepLbl(curTier, lb)
+    else if showLbl
+        label.new(time, curBull ? high : low, txt, xloc = xloc.bar_time, style = curBull ? label.style_label_down : label.style_label_up, color = curCol, textcolor = f_txtOn(curCol), size = f_tsize(lblSize), tooltip = tip)
+    if alertCur
+        alert(syminfo.ticker + " " + f_tfName(timeframe.period) + ": sviečka " + txt + " (pásmo " + str.tostring(curTier + 1) + " od " + f_sizeTxt(array.get(THS, curTier)) + ")", alert.freq_once_per_bar_close)
+
+// ───────────────────────────── VYŠŠIE TIMEFRAMY ─────────────────────────────
+// Posledná ZATVORENÁ sviečka HTF ([1] + lookahead_on = bez prekresľovania).
+[hO1, hH1, hL1, hC1, hT1, hTC1] = request.security(syminfo.tickerid, hTf1, [open[1], high[1], low[1], close[1], time[1], time_close[1]], lookahead = barmerge.lookahead_on)
+[hO2, hH2, hL2, hC2, hT2, hTC2] = request.security(syminfo.tickerid, hTf2, [open[1], high[1], low[1], close[1], time[1], time_close[1]], lookahead = barmerge.lookahead_on)
+[hO3, hH3, hL3, hC3, hT3, hTC3] = request.security(syminfo.tickerid, hTf3, [open[1], high[1], low[1], close[1], time[1], time_close[1]], lookahead = barmerge.lookahead_on)
+[hO4, hH4, hL4, hC4, hT4, hTC4] = request.security(syminfo.tickerid, hTf4, [open[1], high[1], low[1], close[1], time[1], time_close[1]], lookahead = barmerge.lookahead_on)
+bool hNew1 = nz(ta.change(hT1)) != 0
+bool hNew2 = nz(ta.change(hT2)) != 0
+bool hNew3 = nz(ta.change(hT3)) != 0
+bool hNew4 = nz(ta.change(hT4)) != 0
+bool hOk1 = hOn1 and timeframe.in_seconds(hTf1) > chartSec
+bool hOk2 = hOn2 and timeframe.in_seconds(hTf2) > chartSec
+bool hOk3 = hOn3 and timeframe.in_seconds(hTf3) > chartSec
+bool hOk4 = hOn4 and timeframe.in_seconds(hTf4) > chartSec
+
+f_htf(int src, string tf, bool ok, bool isNew, float o, float h, float l, float c, int t, int tc) =>
+    if ok and isNew and not na(t) and not na(o)
+        float s = f_size(o, h, l, c)
+        int   tr = f_tier(s)
+        int   tr0 = math.max(tr, 0)
+        if tr >= 0 and array.get(ONS, tr0) and f_dirOk(o, c)
+            f_stat(src, tr, t, s)
+            color col = array.get(COL, tr)
+            bool bull = c >= o
+            string name = f_tfName(tf)
+            string txt = name + (bull ? " ▲ " : " ▼ ") + f_sizeTxt(s)
+            int tEnd = na(tc) ? t + timeframe.in_seconds(tf) * 1000 : tc
+            box b = box.new(t, h, tEnd, l, xloc = xloc.bar_time, border_color = col, border_width = 2, border_style = line.style_dashed, bgcolor = color.new(col, hTr), text = hTxt ? txt : "", text_color = col, text_size = f_tsize(lblSize), text_halign = text.align_left, text_valign = bull ? text.align_top : text.align_bottom)
+            if f_small(tr)
+                f_keepBox(src * 10 + tr, b)
+            if alertHtf
+                alert(syminfo.ticker + " " + name + ": sviečka " + (bull ? "▲ " : "▼ ") + f_sizeTxt(s) + " (pásmo " + str.tostring(tr + 1) + " od " + f_sizeTxt(array.get(THS, tr)) + ")", alert.freq_once_per_bar)
+
+f_htf(1, hTf1, hOk1, hNew1, hO1, hH1, hL1, hC1, hT1, hTC1)
+f_htf(2, hTf2, hOk2, hNew2, hO2, hH2, hL2, hC2, hT2, hTC2)
+f_htf(3, hTf3, hOk3, hNew3, hO3, hH3, hL3, hC3, hT3, hTC3)
+f_htf(4, hTf4, hOk4, hNew4, hO4, hH4, hL4, hC4, hT4, hTC4)
+
+// ───────────────────────────── TABUĽKA ─────────────────────────────
+var table tS = table.new(f_tblPos(tblPos), 9, 9, border_width = 1, border_color = color.new(color.white, 85))
+// zlúčenie hlavičky a päty – raz, na prvom bare
+if showTbl and barstate.isfirst
+    table.merge_cells(tS, 0, 0, 8, 0)
+    table.merge_cells(tS, 0, 8, 8, 8)
+if showTbl and barstate.islast
+    color HD = #263238
+    color BG = #37474F
+    color TX = color.white
+    color OFFC = #607D8B
+    string ts = tblSize
+    string curName = f_tfName(timeframe.period)
+    string hdr = "CANDLE SIZE SCANNER  ·  " + syminfo.ticker + "  ·  graf " + curName + "  ·  " + (measure == "Rozsah (high − low)" ? "rozsah" : "telo") + " v " + (unit == "Cena (USD)" ? "USD" : unit == "Pipy (1 USD = 10 pip)" ? "pipoch" : "%") + "  ·  " + (dirF == "Obe" ? "▲▼" : dirF == "Iba rastúce ▲" ? "iba ▲" : "iba ▼")
+    table.cell(tS, 0, 0, hdr, text_color = TX, bgcolor = HD, text_size = f_tsize(ts), text_halign = text.align_left)
+    // hlavička stĺpcov
+    table.cell(tS, 0, 1, "Pásmo", text_color = TX, bgcolor = HD, text_size = f_tsize(ts))
+    table.cell(tS, 1, 1, "Stav", text_color = TX, bgcolor = HD, text_size = f_tsize(ts), tooltip = "Zapnúť / vypnúť: Nastavenia → ② Veľkosti sviečok (zaškrtávacie políčko pri pásme). Vypnuté pásmo sa na grafe nezobrazuje.")
+    table.cell(tS, 2, 1, "Rozsah", text_color = TX, bgcolor = HD, text_size = f_tsize(ts))
+    table.cell(tS, 3, 1, curName + " (graf)", text_color = TX, bgcolor = HD, text_size = f_tsize(ts), tooltip = "Počet sviečok aktuálneho timeframu v pásme (celá načítaná história).")
+    table.cell(tS, 4, 1, hOk1 ? f_tfName(hTf1) : hOn1 ? f_tfName(hTf1) + " ✖" : "—", text_color = hOk1 ? TX : OFFC, bgcolor = HD, text_size = f_tsize(ts), tooltip = hOk1 ? "Vyšší timeframe A" : hOn1 ? "TF A nie je vyšší ako timeframe grafu – preskočené." : "TF A vypnutý")
+    table.cell(tS, 5, 1, hOk2 ? f_tfName(hTf2) : hOn2 ? f_tfName(hTf2) + " ✖" : "—", text_color = hOk2 ? TX : OFFC, bgcolor = HD, text_size = f_tsize(ts), tooltip = hOk2 ? "Vyšší timeframe B" : hOn2 ? "TF B nie je vyšší ako timeframe grafu – preskočené." : "TF B vypnutý")
+    table.cell(tS, 6, 1, hOk3 ? f_tfName(hTf3) : hOn3 ? f_tfName(hTf3) + " ✖" : "—", text_color = hOk3 ? TX : OFFC, bgcolor = HD, text_size = f_tsize(ts), tooltip = hOk3 ? "Vyšší timeframe C" : hOn3 ? "TF C nie je vyšší ako timeframe grafu – preskočené." : "TF C vypnutý")
+    table.cell(tS, 7, 1, hOk4 ? f_tfName(hTf4) : hOn4 ? f_tfName(hTf4) + " ✖" : "—", text_color = hOk4 ? TX : OFFC, bgcolor = HD, text_size = f_tsize(ts), tooltip = hOk4 ? "Vyšší timeframe D" : hOn4 ? "TF D nie je vyšší ako timeframe grafu – preskočené." : "TF D vypnutý")
+    table.cell(tS, 8, 1, "Posledná (" + curName + ")", text_color = TX, bgcolor = HD, text_size = f_tsize(ts))
+    // riadky pásiem
+    for i = 0 to 5
+        int r = i + 2
+        bool on = array.get(ONS, i)
+        color cc = array.get(COL, i)
+        float th = array.get(THS, i)
+        // horná hranica = najbližší vyšší prah
+        float up = na
+        for j = 0 to 5
+            float tj = array.get(THS, j)
+            if tj > th and (na(up) or tj < up)
+                up := tj
+        string rng = "≥ " + f_sizeTxt(th) + (na(up) ? "" : "  až < " + f_sizeTxt(up))
+        bool sm = f_small(i)
+        table.cell(tS, 0, r, "Pásmo " + str.tostring(i + 1) + (sm ? "  ⏱" : ""), text_color = on ? f_txtOn(cc) : OFFC, bgcolor = on ? cc : BG, text_size = f_tsize(ts), tooltip = sm ? "Malé pásmo: na grafe iba posledných " + str.tostring(smallKeep) + " výskytov (na každý timeframe)." : "Veľké pásmo: bez obmedzenia spätne.")
+        table.cell(tS, 1, r, on ? "✔ ZAP" : "✖ VYP", text_color = on ? #69F0AE : OFFC, bgcolor = BG, text_size = f_tsize(ts))
+        table.cell(tS, 2, r, rng, text_color = on ? TX : OFFC, bgcolor = BG, text_size = f_tsize(ts))
+        for srcI = 0 to 4
+            int cnt = matrix.get(CNT, srcI, i)
+            bool srcOk = srcI == 0 or (srcI == 1 ? hOk1 : srcI == 2 ? hOk2 : srcI == 3 ? hOk3 : hOk4)
+            string ct = not srcOk ? "—" : not on ? "·" : str.tostring(cnt)
+            string tipC = srcOk and on and cnt > 0 ? "Posledná: " + str.format_time(matrix.get(LASTT, srcI, i), "dd.MM.yyyy HH:mm", tz) + "  " + f_sizeTxt(matrix.get(LASTS, srcI, i)) : ""
+            table.cell(tS, 3 + srcI, r, ct, text_color = srcOk and on and cnt > 0 ? TX : OFFC, bgcolor = srcOk and on and cnt > 0 ? color.new(cc, 70) : BG, text_size = f_tsize(ts), tooltip = tipC)
+        int c0 = matrix.get(CNT, 0, i)
+        table.cell(tS, 8, r, on and c0 > 0 ? str.format_time(matrix.get(LASTT, 0, i), "dd.MM.yy HH:mm", tz) + "  " + f_sizeTxt(matrix.get(LASTS, 0, i)) : "—", text_color = on and c0 > 0 ? TX : OFFC, bgcolor = BG, text_size = f_tsize(ts))
+    // päta
+    int totalCur = 0
+    for i = 0 to 5
+        if array.get(ONS, i)
+            totalCur += matrix.get(CNT, 0, i)
+    string foot = "Spolu na " + curName + ": " + str.tostring(totalCur) + " z " + str.tostring(bar_index + 1) + " sviečok  ·  ⏱ malé pásma (prah < " + f_sizeTxt(smallBelow) + "): posledných " + str.tostring(smallKeep) + "  ·  vypnutie pásma: Nastavenia → ②"
+    table.cell(tS, 0, 8, foot, text_color = #B0BEC5, bgcolor = HD, text_size = f_tsize(ts), text_halign = text.align_left)
+
+// ───────────────────────────── KONIEC ─────────────────────────────
+// Kód je vložený celý → zruš upozornenie "KÓD JE NEÚPLNÝ" zo začiatku súboru.
+if barstate.islast
+    table.cell(tWarn, 0, 0, "", bgcolor = color.new(color.black, 100))
+// KONIEC SÚBORU – Candle Size Scanner v1

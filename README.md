@@ -1,5 +1,38 @@
 # Indikators
 
+## Candle Size Scanner (`candle-size-scanner.pine`)
+
+TradingView indikátor (Pine Script v6), ktorý vyhľadá sviečky podľa **zadaných veľkostí** (štandardne pásma od 20 / 30 / 50 / 100 / 150 / 200 USD), farebne ich označí a spočíta v tabuľke. Funguje na **aktuálnom timeframe** aj na **vyšších timeframoch** naraz (napr. na M5 grafe vidíš aj veľké sviečky M15, H1, H4 a D1).
+
+### Inštalácia
+1. Otvor graf (napr. **XAUUSD** M5 – H1) a dole klikni na **Pine Editor**.
+2. Zmaž obsah editora a vlož celý súbor `candle-size-scanner.pine`.
+3. Klikni na **Uložiť** a potom na **Pridať do grafu**.
+
+### Čo je na grafe
+| Prvok | Význam |
+|---|---|
+| Zafarbená sviečka | sviečka aktuálneho timeframu spadla do zapnutého pásma (veľké pásma, **bez obmedzenia spätne**) |
+| Rámček okolo sviečky | **malé pásmo** (prah pod 50): zobrazí sa iba **posledných 10** výskytov na pásmo |
+| Štítok ▲ / ▼ + číslo | smer a veľkosť sviečky (USD, pipy alebo %) – tooltip má dátum, pásmo a detail |
+| Prerušovaný rámček s textom `H1 ▲ 62.4` | sviečka **vyššieho timeframu** v pásme, roztiahnutá cez celý jej čas na aktuálnom grafe |
+
+### Pásma veľkostí
+- Každé pásmo je interval **od svojho prahu po nasledujúci vyšší prah**, posledné pásmo je bez hornej hranice. Prahy sa zadávajú vzostupne, ale indikátor si ich zoradí sám.
+- **Vypnuté pásmo = sviečky tej veľkosti sa nezobrazia** (nepadnú do nižšieho pásma). Pásmo vypneš zaškrtávacím políčkom v Nastaveniach → *② Veľkosti sviečok*; tabuľka ukazuje stav `✔ ZAP` / `✖ VYP`. Pine tabuľky nie sú klikateľné, preto sa prepína v nastaveniach.
+- **Malé pásma** (prah pod hodnotou *Malé pásmo = prah pod*, štandardne 50) ukazujú iba posledných N výskytov (štandardne 10) – na každé pásmo a každý timeframe zvlášť. Voliteľne sa dajú aj malé sviečky farbiť po celej histórii.
+- Meranie: **rozsah** (high − low) alebo **telo** (|close − open|). Jednotka: **USD**, **pipy** (1 USD = 10 pip) alebo **%**. Filter smeru: obe / iba rastúce / iba klesajúce.
+
+### Tabuľka
+Riadok pre každé pásmo: stav, rozsah pásma, počet sviečok na grafovom timeframe a na každom vyššom timeframe (tooltip = posledný výskyt), dátum a veľkosť poslednej sviečky. Päta ukazuje celkový počet zo všetkých načítaných sviečok. Vyšší timeframe, ktorý nie je vyšší ako timeframe grafu, je označený `✖` a preskočený.
+
+### Upozornenia
+Po zatvorení sviečky v zapnutom pásme (na grafe aj na vyšších timeframoch) indikátor volá `alert()`: v TradingView vytvor alert na indikátor s voľbou *Any alert() function call*.
+
+### Limity TradingView
+Na grafe môže byť naraz max. 500 štítkov a 500 rámčekov – staršie TradingView maže automaticky. Farbenie sviečok limit nemá. Počty v tabuľke sa počítajú z celej histórie načítanej na grafe.
+
+
 ## GFX MS 2026 – Trade Map (`gfx-ms-2026-trade-map.pine`)
 
 TradingView indikátor (Pine Script v6) pre **XAUUSD**. Zobrazí všetkých 158 manuálnych signálov GFX Premier Club (29.12.2025 – 08.10.2026) priamo na grafe zlata: ponor, trvanie, zisk a štatistiky.
