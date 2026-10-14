@@ -42,7 +42,7 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**, kreslí sa **priamo na c
 
 ### Inštalácia
 1. Otvor graf **XAUUSD** (odporúčané M15 – H1 pre seansy, D1 pre makro pohľad) a dole klikni na **Pine Editor**.
-2. Otvor `gold-greed-fear.pine` na GitHube, klikni na **Raw**, Ctrl+A, Ctrl+C. Kód má cca 820 riadkov a posledný riadok je `// KONIEC SÚBORU – Gold G/F PRO v5`. Nekopíruj z náhľadu v chate, ten sa orezáva.
+2. Otvor `gold-greed-fear.pine` na GitHube, klikni na **Raw**, Ctrl+A, Ctrl+C. Kód má cca 890 riadkov a posledný riadok je `// KONIEC SÚBORU – Gold G/F PRO v6`. Nekopíruj z náhľadu v chate, ten sa orezáva.
 3. Zmaž obsah editora, vlož kód, klikni na **Uložiť** a potom na **Pridať do grafu**. Všetko sa kreslí priamo na cenový graf, žiadny panel pod cenou.
 4. Ak sa vložila len časť, kompilátor hlási CE10246 alebo graf ukáže červené „KÓD JE NEÚPLNÝ". Vlož celý súbor znova.
 
@@ -65,11 +65,15 @@ TradingView indikátor (Pine Script v6) pre **XAUUSD**, kreslí sa **priamo na c
 ### Komponenty skóre
 | Komponent | Váha | Ako sa číta |
 |---|---|---|
+| **Zlato vs makro (Macro Link)** | **35** | rolling regresia zlata na DXY a US10Y; zlato silnejšie než implikuje makro = chamtivosť, slabšie = strach |
+| **Makro tailwind** | **15** | klesajúci dolár a výnosy za okno = tailwind pre zlato |
 | RSI | 30 | priamo ako skóre 0–100 |
 | Vzdialenosť od rýchlej / pomalej SMA | 15 + 15 | % od priemeru, z-skóre (alebo pevné %) |
 | ATR režim | 15 | vysoká vol v poklese = strach, v raste = tlmená chamtivosť, kľud = drift v smere trendu |
 | Sentiment (voliteľné) | 15 | ručne vložené % longov davu, alebo override skóre |
 | 8 faktorových slotov | 5 – 10 | DXY ↓, US10Y ↓, US02Y ↓, EURUSD ↑, USDJPY ↓, XAGUSD ↑, SPX ~, VIX ↑ (SPX a VIX štandardne vypnuté) |
+
+Makro väzba je jadro modelu: parametre (beta okno 120, okno reziduálu 60, zCap 2.0, váhy 35 / 15) sú kalibrované Monte Carlo simuláciou, pozri `gold-model-simulacia.md` a `sim/gold_model_sim.py`. V dashboarde vidíš skutočný a implikovaný pohyb zlata, reziduál so sparkline, obe bety a slovné čítanie (napr. „zlato IGNORUJE makro"). Alerty pri reziduáli nad +2σ a pod −2σ.
 
 Každý faktor má: zapnutie, symbol, znamienko (`Inverse` / `Direct` / `Auto (by corr)`), váhu a jednotku zobrazenia (`%`, `pips 0.0001`, `pips 0.01`, `bp`, `pts`). Váha sa škáluje živou koreláciou so zlatom – faktor, ktorý ide proti očakávanému vzťahu, na skóre nevplýva. Komponenty s `na` sa z priemeru vypustia, skóre je vždy 0–100 a vyhladzuje sa EMA.
 

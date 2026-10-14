@@ -2,14 +2,15 @@
 // This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Pomeranian trader
 //
-// Gold Greed vs Fear PRO v5 — composite 0–100 sentiment model for XAUUSD, drawn ON the price chart
+// Gold Greed vs Fear PRO v6 — composite 0–100 sentiment model for XAUUSD, drawn ON the price chart
+//   · Macro Link: rolling two-factor regression of gold on DXY and US yields; gold vs macro-implied move = core of the score
 //   · score shown as bar colour, background tint, gauge in the dashboard and extreme-zone markers on the bars
 //   · linked-market factor panel (DXY, US yields, EURUSD, USDJPY, silver, SPX, VIX …) with sparkline mini charts
 //   · 30-day volatility statistics from closed daily bars (no repaint)
 //   · Asia / London / New York session statistics, time-of-session excursion profile and a live
 //     "range cone" on the price chart: where price typically is 30 min, 1 h, 2 h … after the session open
 //
-// INŠTALÁCIA: vlož CELÝ súbor (cca 820 riadkov, posledný riadok je "// KONIEC SÚBORU – Gold G/F PRO v5").
+// INŠTALÁCIA: vlož CELÝ súbor (cca 880 riadkov, posledný riadok je "// KONIEC SÚBORU – Gold G/F PRO v6").
 // Ak sa vloží iba časť, kompilátor hlási CE10246 alebo sa na grafe zobrazí červené "KÓD JE NEÚPLNÝ".
 // Kopíruj z GitHubu cez tlačidlo "Raw", nie z náhľadu v chate (ten sa orezáva pri ~16 000 znakoch).
 
@@ -19,7 +20,7 @@ indicator("Gold Greed vs Fear PRO [Pomeranian]", "Gold G/F PRO", overlay = true,
 plot(na, "", display = display.none, editable = false)
 var table tWarn = table.new(position.middle_center, 1, 1)
 if barstate.islast
-    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód z GitHubu (Raw), posledný riadok je\n\"// KONIEC SÚBORU – Gold G/F PRO v5\" a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
+    table.cell(tWarn, 0, 0, "⚠ KÓD JE NEÚPLNÝ\nDo Pine Editora sa vložila iba časť súboru.\nSkopíruj CELÝ kód z GitHubu (Raw), posledný riadok je\n\"// KONIEC SÚBORU – Gold G/F PRO v6\" a ulož znova.", text_color = color.white, bgcolor = #C62828, text_size = size.large)
 
 //-----------------------------------------------------------------------------}
 //Settings
@@ -100,6 +101,16 @@ f8Sym = input.symbol("TVC:VIX",      "", inline = "f8", group = facG)
 f8Sign = input.string("Direct", "", options = ["Inverse", "Direct", "Auto (by corr)"], inline = "f8", group = facG)
 f8W = input.float(5.0,  "w", minval = 0.0, inline = "f8", group = facG)
 f8Unit = input.string("pts", "", options = ["%", "pips 0.0001", "pips 0.01", "bp", "pts"], inline = "f8", group = facG)
+
+//Macro link
+mlG     = "Macro Link (DXY + Bonds)"
+mlOn    = input.bool(true, "Enable Macro Link", group = mlG, tooltip = "Rolling two-factor regression of gold returns on DXY returns and yield changes. The macro-implied gold move is compared with the actual move: gold rising although the dollar and yields rise = greed, gold falling although macro is supportive = fear / liquidation.")
+mlDxy   = input.symbol("TVC:DXY",   "Dollar", inline = "ml1", group = mlG)
+mlYld   = input.symbol("TVC:US10Y", "Yield",  inline = "ml1", group = mlG, tooltip = "Dollar index and yield used in the regression. TVC:US10Y is the nominal 10-year; on a daily chart FRED:DFII10 (real yield) is the better choice.")
+betaLen = input.int(120, "Beta Window (bars)",     minval = 30, group = mlG, tooltip = "Bars used to estimate the two betas. Calibrated by simulation: 120 recovers a regime change in the gold / dollar link within about a week on H1.")
+resLen  = input.int(60,  "Residual Window (bars)", minval = 5,  group = mlG, tooltip = "Bars over which actual and macro-implied gold moves are summed and compared. Calibrated by simulation: 60 on H1 tracks the rich / cheap level of gold versus macro best.")
+wRes    = input.float(35.0, "Weight: Gold vs Macro", minval = 0.0, group = mlG, tooltip = "Weight of the residual sub-score (gold stronger or weaker than DXY and yields imply). Largest single weight in the model by design.")
+wTail   = input.float(15.0, "Weight: Macro Tailwind", minval = 0.0, group = mlG, tooltip = "Weight of the macro environment sub-score: falling dollar and falling yields = tailwind for gold.")
 
 //Sentiment
 sentG    = "Sentiment"
@@ -238,6 +249,13 @@ f_sgn(float x, string f) =>
 
 f_pm(float u, float d) =>
     "+" + f_fmt(u, "0.0") + " / −" + f_fmt(d, "0.0")
+
+f_cov(float a, float b, int n) =>
+    ta.correlation(a, b, n) * ta.stdev(a, n) * ta.stdev(b, n)
+
+f_mlText(float zz) =>
+    na(zz) ? "–" : zz > 1.5 ? "zlato IGNORUJE makro, silnejšie než implikuje DXY / výnosy" : zz > 0.5 ? "zlato mierne nad tým, čo implikuje makro" :
+     zz < -1.5 ? "zlato SLABŠIE než implikuje makro, likvidácia / strach" : zz < -0.5 ? "zlato mierne pod tým, čo implikuje makro" : "v súlade s makrom"
 
 f_gauge(float x) =>
     string g = ""
@@ -479,6 +497,34 @@ sVol = na(volExcess) ? na :
 goldRet = ta.roc(close, 1)
 
 //-----------------------------------------------------------------------------}
+//Macro link: gold = bD · DXY return + bY · yield change (bp) + residual
+//-----------------------------------------------------------------------------{
+mlD   = request.security(mlDxy, timeframe.period, close, lookahead = barmerge.lookahead_off)
+mlY   = request.security(mlYld, timeframe.period, close, lookahead = barmerge.lookahead_off)
+rD    = ta.roc(mlD, 1)
+dYbp  = ta.change(mlY) * 100.0
+c11   = ta.variance(rD, betaLen)
+c22   = ta.variance(dYbp, betaLen)
+c12   = f_cov(rD, dYbp, betaLen)
+cy1   = f_cov(goldRet, rD, betaLen)
+cy2   = f_cov(goldRet, dYbp, betaLen)
+det   = c11 * c22 - c12 * c12
+bD    = na(det) or det == 0 ? na : (cy1 * c22 - cy2 * c12) / det
+bY    = na(det) or det == 0 ? na : (cy2 * c11 - cy1 * c12) / det
+implied = bD * rD + bY * dYbp
+resid   = goldRet - implied
+cumRes  = math.sum(resid, resLen)
+cumAct  = math.sum(goldRet, resLen)
+cumImp  = math.sum(implied, resLen)
+zRes    = f_z(cumRes, normLen)
+sRes    = mlOn ? f_zScore(zRes) : na
+dxyChg  = ta.roc(mlD, resLen)
+yldChg  = ta.change(mlY, resLen) * 100.0
+zTail   = -(f_z(dxyChg, normLen) + f_z(yldChg, normLen)) / 2.0
+sTail   = mlOn ? f_zScore(zTail) : na
+resSp   = f_spark(cumRes, sparkLen)
+
+//-----------------------------------------------------------------------------}
 //Factors
 //-----------------------------------------------------------------------------{
 f_factor(bool on, simple string sym, string sign, float w, string unit) =>
@@ -519,10 +565,10 @@ sentVal    = sentVal0 < 0 ? na : sentVal0
 sSent      = sentMode == "Blend crowd long %" ? sentVal : na
 isOverride = sentMode == "Override final score" and not na(sentVal)
 
-num = f_num(sRsi, wRsi) + f_num(sFast, wFast) + f_num(sSlow, wSlow) + f_num(sVol, wVol) + f_num(sSent, wSent) +
+num = f_num(sRsi, wRsi) + f_num(sFast, wFast) + f_num(sSlow, wSlow) + f_num(sVol, wVol) + f_num(sSent, wSent) + f_num(sRes, wRes) + f_num(sTail, wTail) +
      f_num(fc1.score, fc1.wEff) + f_num(fc2.score, fc2.wEff) + f_num(fc3.score, fc3.wEff) + f_num(fc4.score, fc4.wEff) +
      f_num(fc5.score, fc5.wEff) + f_num(fc6.score, fc6.wEff) + f_num(fc7.score, fc7.wEff) + f_num(fc8.score, fc8.wEff)
-den = f_den(sRsi, wRsi) + f_den(sFast, wFast) + f_den(sSlow, wSlow) + f_den(sVol, wVol) + f_den(sSent, wSent) +
+den = f_den(sRsi, wRsi) + f_den(sFast, wFast) + f_den(sSlow, wSlow) + f_den(sVol, wVol) + f_den(sSent, wSent) + f_den(sRes, wRes) + f_den(sTail, wTail) +
      f_den(fc1.score, fc1.wEff) + f_den(fc2.score, fc2.wEff) + f_den(fc3.score, fc3.wEff) + f_den(fc4.score, fc4.wEff) +
      f_den(fc5.score, fc5.wEff) + f_den(fc6.score, fc6.wEff) + f_den(fc7.score, fc7.wEff) + f_den(fc8.score, fc8.wEff)
 
@@ -638,6 +684,9 @@ plot(sRsi,  "RSI sub-score",     display = display.data_window)
 plot(sFast, "Fast MA sub-score", display = display.data_window)
 plot(sSlow, "Slow MA sub-score", display = display.data_window)
 plot(sVol,  "ATR sub-score",     display = display.data_window)
+plot(sRes,  "Gold vs macro sub-score", display = display.data_window)
+plot(sTail, "Macro tailwind sub-score", display = display.data_window)
+plot(cumRes, "Gold vs macro residual %", display = display.data_window)
 plot(fc1.score, "Factor 1 sub-score", display = display.data_window)
 plot(fc2.score, "Factor 2 sub-score", display = display.data_window)
 plot(fc3.score, "Factor 3 sub-score", display = display.data_window)
@@ -678,6 +727,8 @@ alertcondition(score > 75,  "Extreme Greed (state)",  "Gold G/F: score above 75 
 alertcondition(xFearOut or xGreedOut, "Exit extreme zone", "Gold G/F: score left an extreme zone on {{ticker}} {{interval}}")
 alertcondition(exceed and not exceed[1],   "Session range > expected", "Gold G/F: session range exceeded the vol-adjusted expected range on {{ticker}} {{interval}}")
 alertcondition(exceedP and not exceedP[1], "Session range > p90",      "Gold G/F: session range exceeded the p90 of the window on {{ticker}} {{interval}}")
+alertcondition(ta.crossover(zRes, 2.0),   "Gold far above macro",  "Gold G/F: gold is running far above what DXY and yields imply on {{ticker}} {{interval}} (residual z > 2)")
+alertcondition(ta.crossunder(zRes, -2.0), "Gold far below macro",  "Gold G/F: gold is far below what DXY and yields imply on {{ticker}} {{interval}} (residual z < -2)")
 coneBreakUp = coneOn and close > coneHi9
 coneBreakDn = coneOn and close < coneLo9
 alertcondition(coneBreakUp and not coneBreakUp[1], "Price above p90 cone", "Gold G/F: price moved above the p90 cone of the session on {{ticker}} {{interval}}")
@@ -688,8 +739,8 @@ alertcondition(coneBreakDn and not coneBreakDn[1], "Price below p90 cone", "Gold
 //-----------------------------------------------------------------------------{
 tsz = dashSize == "Tiny" ? size.tiny : dashSize == "Normal" ? size.normal : size.small
 
-var table d1 = table.new(f_pos(posD1), 6, 16, bgcolor = dashBg, frame_color = color.new(dashAcc, 50), frame_width = 1, border_color = color.new(txtCol, 88), border_width = 1)
-var table d2 = table.new(f_pos(posD2), 3, 26, bgcolor = dashBg, frame_color = color.new(dashAcc, 50), frame_width = 1, border_color = color.new(txtCol, 88), border_width = 1)
+var table d1 = table.new(f_pos(posD1), 6, 18, bgcolor = dashBg, frame_color = color.new(dashAcc, 50), frame_width = 1, border_color = color.new(txtCol, 88), border_width = 1)
+var table d2 = table.new(f_pos(posD2), 3, 29, bgcolor = dashBg, frame_color = color.new(dashAcc, 50), frame_width = 1, border_color = color.new(txtCol, 88), border_width = 1)
 
 f_cell(table t, int c, int r, string s, color tc, color bg, string al) =>
     table.cell(t, c, r, s, text_color = tc, text_size = tsz, bgcolor = bg, text_halign = al)
@@ -767,20 +818,33 @@ if showD1 and barstate.islast
     f_core(4, "Dist SMA" + str.tostring(slowLen),   f_sgn(dSlow, "0.00") + " %", sSlow)
     f_core(5, "ATR režim " + (upTrend ? "↑" : "↓"), f_fmt(atrRatio, "0.00") + "x", sVol)
     f_core(6, "Sentiment", sentMode == "Off" ? "off" : na(sentVal) ? "na" : f_fmt(sentVal, "0") + (isOverride ? " (override)" : " % long"), sSent)
-    fc1.row(7)
-    fc2.row(8)
-    fc3.row(9)
-    fc4.row(10)
-    fc5.row(11)
-    fc6.row(12)
-    fc7.row(13)
-    fc8.row(14)
-    f_cell(d1, 0, 15, "Faktory", txtDim, color(na), text.align_left)
-    f_cell(d1, 1, 15, str.tostring(facGreed) + " ↑ greed · " + str.tostring(facFear) + " ↓ fear · " + str.tostring(facOn - facGreed - facFear) + " → neutrál", txtCol, color(na), text.align_left)
-    f_cell(d1, 2, 15, "", txtCol, color(na), text.align_right)
-    f_cell(d1, 3, 15, "", txtCol, color(na), text.align_right)
-    f_cell(d1, 4, 15, isGold ? "" : "⚠ graf nie je zlato", color.orange, color(na), text.align_right)
-    f_cell(d1, 5, 15, "", txtCol, color(na), text.align_center)
+    color resCol = not mlOn or na(cumRes) ? txtDim : cumRes >= 0 ? upCol : dnCol
+    f_cell(d1, 0, 7, "Zlato vs makro (" + str.tostring(resLen) + " b)", mlOn ? txtCol : txtDim, color(na), text.align_left)
+    f_cell(d1, 1, 7, mlOn ? resSp : "off", resCol, color(na), text.align_left)
+    f_cell(d1, 2, 7, mlOn ? "skut. " + f_sgn(cumAct, "0.00") + " % · impl. " + f_sgn(cumImp, "0.00") + " %" : "–", txtCol, color(na), text.align_right)
+    f_cell(d1, 3, 7, mlOn ? "rez. " + f_sgn(cumRes, "0.00") + " %" : "–", resCol, color(na), text.align_right)
+    f_cell(d1, 4, 7, mlOn ? "βDXY " + f_fmt(bD, "0.00") + " · β10Y " + f_fmt(bY * 100.0, "0.00") + " %/bp·100 · w " + f_fmt(wRes, "0") : "–", txtDim, color(na), text.align_right)
+    f_cell(d1, 5, 7, mlOn ? f_fmt(sRes, "0") : "–", color.white, mlOn and not na(sRes) ? color.new(f_zoneCol(sRes), 35) : color(na), text.align_center)
+    f_cell(d1, 0, 8, "Makro tailwind", mlOn ? txtCol : txtDim, color(na), text.align_left)
+    f_cell(d1, 1, 8, mlOn ? f_mlText(zRes) : "off", txtDim, color(na), text.align_left)
+    f_cell(d1, 2, 8, mlOn ? "DXY " + f_sgn(dxyChg, "0.00") + " %" : "–", mlOn and not na(dxyChg) ? (dxyChg <= 0 ? upCol : dnCol) : txtDim, color(na), text.align_right)
+    f_cell(d1, 3, 8, mlOn ? "10Y " + f_sgn(yldChg, "0") + " bp" : "–", mlOn and not na(yldChg) ? (yldChg <= 0 ? upCol : dnCol) : txtDim, color(na), text.align_right)
+    f_cell(d1, 4, 8, mlOn ? "z " + f_sgn(zTail, "0.00") + " · w " + f_fmt(wTail, "0") : "–", txtDim, color(na), text.align_right)
+    f_cell(d1, 5, 8, mlOn ? f_fmt(sTail, "0") : "–", color.white, mlOn and not na(sTail) ? color.new(f_zoneCol(sTail), 35) : color(na), text.align_center)
+    fc1.row(9)
+    fc2.row(10)
+    fc3.row(11)
+    fc4.row(12)
+    fc5.row(13)
+    fc6.row(14)
+    fc7.row(15)
+    fc8.row(16)
+    f_cell(d1, 0, 17, "Faktory", txtDim, color(na), text.align_left)
+    f_cell(d1, 1, 17, str.tostring(facGreed) + " ↑ greed · " + str.tostring(facFear) + " ↓ fear · " + str.tostring(facOn - facGreed - facFear) + " → neutrál", txtCol, color(na), text.align_left)
+    f_cell(d1, 2, 17, "", txtCol, color(na), text.align_right)
+    f_cell(d1, 3, 17, "", txtCol, color(na), text.align_right)
+    f_cell(d1, 4, 17, isGold ? "" : "⚠ graf nie je zlato", color.orange, color(na), text.align_right)
+    f_cell(d1, 5, 17, "", txtCol, color(na), text.align_center)
 
 if showD2 and barstate.islast
     [hk, hc, hn] = f_mode(nxt.hiSlot, nxt.nSlots)
@@ -813,11 +877,14 @@ if showD2 and barstate.islast
     nxt.prow(22, 240, volScale, close)
     nxt.prow(23, nxt.mins, volScale, close)
     f_vrow(24, "Typický čas high / low", hk >= 0 ? nxt.slotClock(hk) : "–", lk >= 0 ? "low " + nxt.slotClock(lk) + " (" + nxt.tz + ", " + str.tostring(hc) + "+" + str.tostring(lc) + " z " + str.tostring(hn) + ")" : "–", txtCol)
-    f_vrow(25, "Pozn.", "štatistika, nie predpoveď", "pri FOMC / NFP / CPI rátaj s p90 až max · kužeľ sa škáluje vol scale, p90 nie", txtDim)
+    f_vhead(25, "MAKRO VÄZBA (" + str.tostring(resLen) + " b)", mlOn ? "zlato skut. / implikované" : "off", mlOn ? "βDXY " + f_fmt(bD, "0.00") + " · β10Y " + f_fmt(bY * 100.0, "0.00") + " (×100, %/bp)" : "")
+    f_vrow(26, "Pohyb zlata", mlOn ? f_sgn(cumAct, "0.00") + " % / " + f_sgn(cumImp, "0.00") + " %" : "–", mlOn ? "DXY " + f_sgn(dxyChg, "0.00") + " % · 10Y " + f_sgn(yldChg, "0") + " bp za " + str.tostring(resLen) + " b" : "–", txtCol)
+    f_vrow(27, "Reziduál", mlOn ? f_sgn(cumRes, "0.00") + " % (z " + f_sgn(zRes, "0.0") + ")" : "–", mlOn ? f_mlText(zRes) : "–", mlOn and not na(zRes) ? (math.abs(zRes) > 1.5 ? color.orange : txtCol) : txtDim)
+    f_vrow(28, "Pozn.", "štatistika, nie predpoveď", "pri FOMC / NFP / CPI rátaj s p90 až max · kužeľ sa škáluje vol scale, p90 nie", txtDim)
 
 //-----------------------------------------------------------------------------}
 //End of file: the code was pasted completely, clear the "KÓD JE NEÚPLNÝ" warning
 //-----------------------------------------------------------------------------{
 if barstate.islast
     table.cell(tWarn, 0, 0, "", bgcolor = color.new(color.black, 100))
-// KONIEC SÚBORU – Gold G/F PRO v5
+// KONIEC SÚBORU – Gold G/F PRO v6

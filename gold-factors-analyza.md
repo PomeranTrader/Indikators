@@ -20,6 +20,17 @@ Cieľ: vybrať faktory, ktoré reálne hýbu XAUUSD, určiť očakávaný smer v
 
 Poznámka k režimom: v rokoch 2022–2024 sa vzťah zlato ↔ reálne výnosy výrazne oslabil (nákupy centrálnych bánk, de-dolarizácia). Preto model **neverí fixnému znamienku naslepo** – každý faktor má mód `Inverse` / `Direct` / `Auto (by corr)` a jeho váha sa škáluje živou koreláciou. Ak sa vzťah rozpadne, faktor automaticky stratí vplyv na skóre.
 
+## 1b. Makro väzba: DXY a dlhopisy ako spoločný pohyb
+
+Samostatný faktor „DXY klesá" alebo „výnosy klesajú" nestačí, zlato reaguje na **kombináciu**. Model preto beží rolling dvojrozmernú regresiu výnosov zlata na výnos DXY a zmenu výnosu 10Y (okno 120 barov) a z nej počíta **makrom implikovaný pohyb zlata**. Rozdiel medzi skutočným a implikovaným pohybom za 60 barov je reziduál:
+
+- reziduál > 0: zlato rastie viac, než by malo podľa dolára a výnosov (alebo padá menej). Dopyt mimo makra: centrálne banky, geopolitika, retail. Čím vyššie, tým viac chamtivosti a tým väčšie riziko návratu.
+- reziduál < 0: zlato je slabšie než makro. Likvidácia, margin cally, rotácia. Strach.
+
+Druhá časť je **tailwind**: priemer z-skóre zmeny DXY a 10Y za rovnaké okno so záporným znamienkom. Hovorí, či makro prostredie zlatu práve pomáha alebo prekáža, nezávisle od toho, čo zlato urobilo.
+
+Kalibrácia (simulácia, `gold-model-simulacia.md`): beta okno 120, okno reziduálu 60, váhy 35 (reziduál) a 15 (tailwind). Tieto dve zložky majú spolu 50 zo 175 bodov váhy, k tomu DXY a US10Y ako samostatné sloty s ďalšími 20 bodmi. Makro je tak zhruba 40 % modelu.
+
 ## 2. Ako model faktory používa
 
 1. **Zmena faktora** za `macroLen` barov (štandardne 20) na timeframe grafu – v % a v natívnych jednotkách (pipy pre FX, bp pre výnosy, body pre VIX).
