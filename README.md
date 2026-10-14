@@ -38,13 +38,20 @@ Dáta pochádzajú z `gfx.db setup_metrics` (MAE strict fill), otvorené signál
 
 ## Gold Greed vs Fear PRO – XAUUSD (`gold-greed-fear.pine`)
 
-TradingView indikátor (Pine Script v6) pre **XAUUSD**. Zložený oscilátor 0–100 (strach ↔ chamtivosť) rozšírený o panel prepojených trhov s mini grafmi, 30-dňovú štatistiku volatility a projekciu range pre Asia / London / New York seansu. Logika faktorov je rozpísaná v `gold-factors-analyza.md`.
+TradingView indikátor (Pine Script v6) pre **XAUUSD**, kreslí sa **priamo na cenový graf** (overlay). Zložené skóre 0–100 (strach ↔ chamtivosť) sa ukazuje farbou sviečok, podfarbením pozadia, ukazovateľom v dashboarde a markermi pri vstupe do extrémnych zón. K tomu panel prepojených trhov s mini grafmi, 30-dňová štatistika volatility, kužeľ range a projekcia pre Asia / London / New York seansu. Logika faktorov je rozpísaná v `gold-factors-analyza.md`.
 
 ### Inštalácia
 1. Otvor graf **XAUUSD** (odporúčané M15 – H1 pre seansy, D1 pre makro pohľad) a dole klikni na **Pine Editor**.
-2. Otvor `gold-greed-fear.pine` na GitHube, klikni na **Raw**, Ctrl+A, Ctrl+C. Kód má cca 820 riadkov a posledný riadok je `// KONIEC SÚBORU – Gold G/F PRO v4`. Nekopíruj z náhľadu v chate, ten sa orezáva.
-3. Zmaž obsah editora, vlož kód, klikni na **Uložiť** a potom na **Pridať do grafu**. Oscilátor sa otvorí v paneli pod cenou, projekcie seáns sa kreslia priamo na cenový graf.
+2. Otvor `gold-greed-fear.pine` na GitHube, klikni na **Raw**, Ctrl+A, Ctrl+C. Kód má cca 820 riadkov a posledný riadok je `// KONIEC SÚBORU – Gold G/F PRO v5`. Nekopíruj z náhľadu v chate, ten sa orezáva.
+3. Zmaž obsah editora, vlož kód, klikni na **Uložiť** a potom na **Pridať do grafu**. Všetko sa kreslí priamo na cenový graf, žiadny panel pod cenou.
 4. Ak sa vložila len časť, kompilátor hlási CE10246 alebo graf ukáže červené „KÓD JE NEÚPLNÝ". Vlož celý súbor znova.
+
+### Skóre na cenovom grafe
+- **Farba sviečok** podľa skóre: gradient koralová (strach) → zlatá (neutrál) → mätová (chamtivosť). Dá sa vypnúť v Style → Score On Chart.
+- **Podfarbenie pozadia** rovnakou farbou s vysokou priehľadnosťou, v extrémnych zónach výraznejšie.
+- **Dashboard**: veľké číslo skóre vo farbe zóny, ukazovateľ `█████░░░░░`, názov zóny, sparkline posledných barov a zmena oproti predchádzajúcemu baru.
+- **Markery**: trojuholník pod sviečkou pri vstupe do extrémneho strachu, krúžok pri výstupe; nad sviečkou to isté pre extrémnu chamtivosť.
+- Skóre a všetky čiastkové skóre sú v Data Window, takže sa dajú čítať bar po bare.
 
 ### Zóny skóre
 | Rozsah | Zóna | Farba |
@@ -84,7 +91,7 @@ Model si pre každú seansu pamätá, ako ďaleko od open bol trh v každom 30-m
 Prekríženie pod 25 / nad 75, stav pod 25 / nad 75, opustenie extrémnej zóny, **range seansy > očakávaný**, **range seansy > p90**, **cena nad / pod p90 kužeľom**. Pri potvrdenej sviečke sa odošle aj `alert()` s tickerom, timeframom a skóre.
 
 ### Nastavenia
-Core · Normalization · Factor Instruments (lookback, korelácia, dĺžka mini grafu, 8 slotov) · Sentiment · Core Weights · Volatility & Sessions (okno, vol scale, časy, časové zóny a farby seáns, projekcia) · Style (vyhladenie, farby Fear / Neutral / Greed, hrúbka čiary, gradientová výplň, pozadie, markery) · Dashboard (obe tabuľky, pozícia, veľkosť textu, svetlé pozadie grafu, akcent). Každý vstup má tooltip.
+Core · Normalization · Factor Instruments (lookback, korelácia, dĺžka mini grafu, 8 slotov) · Sentiment · Core Weights · Volatility & Sessions (okno, vol scale, časy, časové zóny a farby seáns, projekcia) · Style (vyhladenie, farby Fear / Neutral / Greed, zobrazenie skóre na grafe: sviečky / pozadie / oboje / nič, priehľadnosť pozadia, markery) · Dashboard (obe tabuľky, pozícia, veľkosť textu, svetlé pozadie grafu, akcent). Každý vstup má tooltip.
 
 Farby: Fear koralová `#ff4d6d`, Neutral zlatá `#f2c94c`, Greed mätová `#3ddc97`, Asia fialová, London svetlomodrá, New York oranžová. Pri svetlom grafe zapni „Light Chart Background".
 
