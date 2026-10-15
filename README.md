@@ -65,3 +65,16 @@ Noha je cesta medzi dvoma opačnými obratmi EMA: BUY noha dno → najbližší 
 | Projekcia (žltá) | zvislé čiary od posledného obratu v mieste Ø, mediánu a P85 trvania nôh rovnakého smeru plus vodorovná čiara Ø pips cieľa |
 
 Čas sa meria reálne (minúty, hodiny, dni), takže rovnaké nastavenie funguje na M15, H1 aj H4. Počet nôh N (predvolene 20, max 100) riadi štatistiku aj to, koľko nôh ostáva nakreslených.
+
+### Doplnok V-Scenáre (`v-turn-2.5-scen.pine`, skupina „V-Scenáre (doplnok)“)
+Nadstavba nad `v-turn-2.5-legs.pine` (pôvodný kód aj V-Nohy bez zmeny). Vypína sa prepínačom **Zapnúť modul V-Scenáre**.
+
+Logika: cena kmitá medzi BUY (dno) a SELL (vrch) obratmi EMA. Rast potrebuje vyššie dno a prieraz horného SELL obratu, pokles nižší vrch a prieraz dolného BUY obratu. Modul si ukladá striedajúce sa obraty a pre každú dokončenú nohu zapíše štruktúru na štarte, veľkosť dvoch predošlých nôh, veľkosť nohy, prieraz predošlého opačného obratu, či nasledujúce dno/vrch držalo a hĺbku návratu. Pri bežiacej nohe vyberie najpodobnejšie historické nohy (rovnaká štruktúra, najbližšia veľkosť posledných dvoch nôh) a zostaví max 10 variantov.
+
+| Prvok | Význam |
+|---|---|
+| Vejár od aktuálnej ceny | každý variant ako čiara k cieľu, farba zelená → červená podľa pravdepodobnosti, hrúbka podľa pravdepodobnosti; návrat ako dvojúsek, zlyhanie bodkovane |
+| Riadok 1 tabuľky | smer nohy, štart, postup, štruktúra (UPTREND, DOWNTREND, kompresia, expanzia) |
+| Riadok 2 | veľkosť vzorky, historická miera prierazu T1, miera držania dna/vrchu, medián nohy a návratu |
+| Riadok 3 a 4 | živá kontrola podmienok: vyššie dno / nižší vrch než predošlé a prieraz opačného obratu T1 |
+| Varianty V1–V10 | Test T1, Prieraz → ďalší obrat T2, ciele P25 / P50 / P75 / P85, Návrat → vyššie dno / nižší vrch (cez medián), Zlyhanie → nižšie dno / vyšší vrch. Pravdepodobnosť je podmienená doterajším postupom nohy, ~Bary z mediánovej rýchlosti podobných nôh |
