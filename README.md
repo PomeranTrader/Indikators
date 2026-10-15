@@ -45,3 +45,23 @@ Otvorené obchody: ponor, P/L a trvanie sa živo dopočítavajú z grafu, a ak g
 Filter dátumu, typy signálov, minimálny ponor, režim „zvýrazniť iba hlboké“, merač ponoru (štítok od X $, % z ceny, krok stupnice, stupnica pri uzavretých, živý merač a jeho odstup), režim štítkov (Auto / Plné / Kompaktné / Iba číslo / Skryť), veľkosti, pipy, lot pre prepočet, časová zóna, všetky farby a pozície tabuliek.
 
 Dáta pochádzajú z `gfx.db setup_metrics` (MAE strict fill) a z doplnenia MS 30.9.–13.10.2026 (ponor od postu; 7.–13.10 ceny GC=F − 27.72, entry 12. a 13.10 približné). Symbol ✎ znamená, že čas postu bol upravený. Samotné dáta sú aj v `gfx-ms-2026-data.pine` a ako tabuľka v `gfx-ms-2026-trades.csv`.
+
+## V_Turn2.5 (`v-turn-2.5.pine`, `v-turn-2.5-legs.pine`)
+
+TradingView indikátor (Pine Script v6, overlay). Obraty EMA(5) ako bubliny farbené podľa seánsy, zóny okolo obratu rušené po 3 dotykoch, push štatistika COMBO (Low/Mid/High AVG, P15, AVG, P85 za 30 dní), projekcie MIDAVG/HIGHAVG, merač gapov medzi zónami a tabuľka levelov.
+
+- `v-turn-2.5.pine` je pôvodná verzia bez zmien (základňa).
+- `v-turn-2.5-legs.pine` je tá istá verzia plus **doplnok V-Nohy** pripojený na koniec súboru. Pôvodný kód sa nemenil.
+
+### Doplnok V-Nohy (skupina nastavení „V-Nohy (doplnok)“)
+Noha je cesta medzi dvoma opačnými obratmi EMA: BUY noha dno → najbližší vrch, SELL noha vrch → najbližšie dno. Celý modul sa vypína prepínačom **Zapnúť modul V-Nohy**.
+
+| Prvok | Význam |
+|---|---|
+| Vyplnený box + prerušovaná spojnica | medzera medzi dnom a vrchom (zelená BUY, červená SELL) |
+| Štítok v strede nohy | `▲ 14 b · 3h30 · 52.0p` = sviečky, reálny čas, posun EMA v pipoch |
+| Tabuľka V-NOHY | pre BUY, SELL a SPOLU z posledných N nôh: N, Ø a mediánový počet sviečok, min, max, Ø čas, Ø a mediánové pips, rýchlosť v pipoch za hodinu |
+| Riadok AKTUÁLNA NOHA | koľko sviečok a času beží od posledného obratu, pips zatiaľ, % z Ø, koľko sviečok ostáva do Ø / mediánu / P85, rozsah high-low, stav SKORÁ · V NORME · ZRELÁ · PRETIAHNUTÁ |
+| Projekcia (žltá) | zvislé čiary od posledného obratu v mieste Ø, mediánu a P85 trvania nôh rovnakého smeru plus vodorovná čiara Ø pips cieľa |
+
+Čas sa meria reálne (minúty, hodiny, dni), takže rovnaké nastavenie funguje na M15, H1 aj H4. Počet nôh N (predvolene 20, max 100) riadi štatistiku aj to, koľko nôh ostáva nakreslených.

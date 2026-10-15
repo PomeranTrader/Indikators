@@ -1,0 +1,493 @@
+//@version=6
+indicator("V_Turn2.5™", overlay = true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+
+// --- Vstupy ---
+group_base = "Základné nastavenia"
+emaLen = input.int(5, "EMA Dĺžka", minval = 1, group = group_base)
+breakCount = input.int(3, "Počet sviečok na prerušenie", minval = 1, group = group_base)
+
+group_zone = "Zóny"
+zoneMode = input.string("Auto", "Režim výšky zóny", options = ["Auto", "Manual"], group = group_zone)
+manualZone = input.float(1.0, "Manual výška zóny", minval = 0, group = group_zone)
+forexZonePips = input.float(1.0, "Forex zóna v pipoch", minval = 0.1, group = group_zone)
+goldZoneUsd = input.float(1.0, "XAUUSD zóna v USD", minval = 0.1, group = group_zone)
+cryptoZoneUsd = input.float(10.0, "Crypto zóna v USD", minval = 0.1, group = group_zone)
+zoneTransparency = input.int(40, "Priehľadnosť zóny", minval = 0, maxval = 100, group = group_zone)
+
+group_vis = "Vizuál"
+circleSize = input.string("normal", "Veľkosť krúžku", options = ["tiny", "small", "normal", "large", "huge"], group = group_vis)
+
+group_sess = "Farby seáns"
+sessionTz = input.string("Europe/Bratislava", "Časová zóna seáns", group = group_sess)
+buyAsiaColor = input.color(color.aqua, "BUY Asia", group = group_sess)
+buyLondonColor = input.color(color.lime, "BUY London", group = group_sess)
+buyNyColor = input.color(color.green, "BUY NY", group = group_sess)
+sellAsiaColor = input.color(color.orange, "SELL Asia", group = group_sess)
+sellLondonColor = input.color(color.red, "SELL London", group = group_sess)
+sellNyColor = input.color(color.fuchsia, "SELL NY", group = group_sess)
+
+group_proj = "MID/HIGH projekcie"
+showPushProjection = input.bool(true, "Zobraziť MIDAVG/HIGHAVG projekcie", group = group_proj)
+projectionCount = input.int(2, "Počet posledných bublín", minval = 1, maxval = 20, group = group_proj)
+projectionBars = input.int(80, "Dĺžka projekcie doprava", minval = 5, maxval = 300, group = group_proj)
+projectionWidth = input.int(2, "Hrúbka línie", minval = 1, maxval = 5, group = group_proj)
+projectionTextColor = input.color(color.white, "Farba textu", group = group_proj)
+projectionTextSize = input.string("small", "Veľkosť textu", options = ["tiny", "small", "normal", "large", "huge"], group = group_proj)
+
+group_meter = "Merač gapov"
+showGapMeter = input.bool(true, "Zobraziť merač gapov", group = group_meter)
+meterOffset = input.int(35, "Posun merača doprava", minval = 1, group = group_meter)
+meterLineColor = input.color(color.white, "Farba stredovej čiary", group = group_meter)
+meterLineWidth = input.int(3, "Hrúbka stredovej čiary", minval = 1, maxval = 5, group = group_meter)
+meterBgColor = input.color(color.gray, "Farba podkladu", group = group_meter)
+meterBgOpacity = input.int(75, "Priehľadnosť podkladu", minval = 0, maxval = 100, group = group_meter)
+meterBgWidthBars = input.int(2, "Šírka podkladu v baroch", minval = 1, maxval = 10, group = group_meter)
+meterTextColor = input.color(color.white, "Farba textu", group = group_meter)
+meterTextSize = input.string("normal", "Veľkosť textu", options = ["tiny", "small", "normal", "large", "huge"], group = group_meter)
+
+group_stats = "Push štatistika COMBO"
+showPushTable = input.bool(true, "Zobraziť Push tabuľku", group = group_stats)
+statsDays = input.int(30, "Počet dní štatistiky", minval = 1, maxval = 365, group = group_stats)
+statsPos = input.string("bottom_right", "Pozícia tabuľky", options = ["top_right", "middle_right", "bottom_right", "top_left", "middle_left", "bottom_left"], group = group_stats)
+statsHeaderBg = input.color(color.rgb(25, 25, 25), "Farba hlavičky", group = group_stats)
+statsCellBg = input.color(color.rgb(10, 10, 10), "Farba buniek", group = group_stats)
+statsRowOpacity = input.int(35, "Sýtosť farieb riadkov", minval = 0, maxval = 100, group = group_stats)
+
+group_tab = "Tabuľka Levelov"
+showTable = input.bool(true, "Zobraziť tabuľku", group = group_tab)
+tablePos = input.string("top_right", "Pozícia tabuľky", options = ["top_right", "middle_right", "bottom_right", "top_left", "middle_left", "bottom_left"], group = group_tab)
+levelsCount = input.int(3, "Počet levelov v tabuľke", minval = 1, maxval = 5, group = group_tab)
+
+// --- Typy ---
+type Zone
+    box b
+    float price
+    float top
+    float bottom
+    bool isBull
+    int crossings = 0
+    bool active = true
+
+var activeZones = array.new<Zone>()
+var meterLines = array.new_line()
+var meterBoxes = array.new_box()
+var meterLabels = array.new_label()
+
+var projectionLines = array.new_line()
+var projectionLabels = array.new_label()
+
+var sigBars = array.new_int()
+var sigEntries = array.new_float()
+var sigBulls = array.new_bool()
+var sigSessions = array.new_int()
+var sigColors = array.new_color()
+
+var float[] buyAsiaVals = array.new_float()
+var float[] buyLondonVals = array.new_float()
+var float[] buyNyVals = array.new_float()
+var float[] sellAsiaVals = array.new_float()
+var float[] sellLondonVals = array.new_float()
+var float[] sellNyVals = array.new_float()
+
+var int[] buyAsiaTimes = array.new_int()
+var int[] buyLondonTimes = array.new_int()
+var int[] buyNyTimes = array.new_int()
+var int[] sellAsiaTimes = array.new_int()
+var int[] sellLondonTimes = array.new_int()
+var int[] sellNyTimes = array.new_int()
+
+var bool activeSignal = false
+var bool activeSignalBull = false
+var int activeSignalSession = na
+var int activeSignalTime = na
+var float activeSignalEntry = na
+var float activeMaxPush = 0.0
+
+// --- Funkcie ---
+get_size(s) =>
+    switch s
+        "tiny" => size.tiny
+        "small" => size.small
+        "normal" => size.normal
+        "large" => size.large
+        "huge" => size.huge
+        => size.normal
+
+get_table_pos(pos) =>
+    switch pos
+        "top_right" => position.top_right
+        "middle_right" => position.middle_right
+        "bottom_right" => position.bottom_right
+        "top_left" => position.top_left
+        "middle_left" => position.middle_left
+        "bottom_left" => position.bottom_left
+        => position.top_right
+
+get_pip_size() =>
+    syminfo.type == "forex" ? syminfo.mintick * 10.0 : syminfo.mintick
+
+get_auto_zone_height() =>
+    string ticker = str.upper(syminfo.ticker)
+    bool isGold = str.contains(ticker, "XAU") or str.contains(ticker, "GOLD")
+    bool isCrypto = syminfo.type == "crypto"
+    bool isForex = syminfo.type == "forex"
+    isGold ? goldZoneUsd : isCrypto ? cryptoZoneUsd : isForex ? forexZonePips * get_pip_size() : manualZone
+
+get_zone_height() =>
+    zoneMode == "Auto" ? get_auto_zone_height() : manualZone
+
+get_session_id(int t) =>
+    int h = hour(t, sessionTz)
+    h <= 7 ? 0 : h <= 13 ? 1 : 2
+
+get_session_color(bool isBullSignal, int sess) =>
+    isBullSignal ? sess == 0 ? buyAsiaColor : sess == 1 ? buyLondonColor : buyNyColor : sess == 0 ? sellAsiaColor : sess == 1 ? sellLondonColor : sellNyColor
+
+clear_meter() =>
+    for l in meterLines
+        line.delete(l)
+    for b in meterBoxes
+        box.delete(b)
+    for lb in meterLabels
+        label.delete(lb)
+    array.clear(meterLines)
+    array.clear(meterBoxes)
+    array.clear(meterLabels)
+
+clear_projections() =>
+    for l in projectionLines
+        line.delete(l)
+    for lb in projectionLabels
+        label.delete(lb)
+    array.clear(projectionLines)
+    array.clear(projectionLabels)
+
+push_signal_marker(int b, float entry, bool isBull, int sess, color c) =>
+    array.push(sigBars, b)
+    array.push(sigEntries, entry)
+    array.push(sigBulls, isBull)
+    array.push(sigSessions, sess)
+    array.push(sigColors, c)
+
+    if array.size(sigBars) > 100
+        array.shift(sigBars)
+        array.shift(sigEntries)
+        array.shift(sigBulls)
+        array.shift(sigSessions)
+        array.shift(sigColors)
+
+push_record(bool isBullSignal, int sess, float val, int t) =>
+    if isBullSignal and sess == 0
+        array.push(buyAsiaVals, val)
+        array.push(buyAsiaTimes, t)
+    else if isBullSignal and sess == 1
+        array.push(buyLondonVals, val)
+        array.push(buyLondonTimes, t)
+    else if isBullSignal and sess == 2
+        array.push(buyNyVals, val)
+        array.push(buyNyTimes, t)
+    else if not isBullSignal and sess == 0
+        array.push(sellAsiaVals, val)
+        array.push(sellAsiaTimes, t)
+    else if not isBullSignal and sess == 1
+        array.push(sellLondonVals, val)
+        array.push(sellLondonTimes, t)
+    else
+        array.push(sellNyVals, val)
+        array.push(sellNyTimes, t)
+
+prune_pair(float[] vals, int[] timesArr, int cutoff) =>
+    if array.size(vals) > 0
+        for i = array.size(vals) - 1 to 0
+            if array.get(timesArr, i) < cutoff
+                array.remove(vals, i)
+                array.remove(timesArr, i)
+
+avg_arr(float[] arr) =>
+    if array.size(arr) == 0
+        na
+    else
+        float sum = 0.0
+        for i = 0 to array.size(arr) - 1
+            sum += array.get(arr, i)
+        sum / array.size(arr)
+
+percentile_arr(float[] arr, float p) =>
+    if array.size(arr) == 0
+        na
+    else
+        float[] temp = array.copy(arr)
+        array.sort(temp, order.ascending)
+        int idx = int(math.floor((array.size(temp) - 1) * p))
+        array.get(temp, idx)
+
+avg_range(float[] sortedArr, int fromIdx, int toIdx) =>
+    if array.size(sortedArr) == 0 or fromIdx > toIdx
+        na
+    else
+        float sum = 0.0
+        int count = 0
+        for i = fromIdx to toIdx
+            sum += array.get(sortedArr, i)
+            count += 1
+        count > 0 ? sum / count : na
+
+low15_avg(float[] arr) =>
+    if array.size(arr) == 0
+        na
+    else
+        float[] temp = array.copy(arr)
+        array.sort(temp, order.ascending)
+        int n = array.size(temp)
+        int cnt = math.max(1, int(math.ceil(n * 0.15)))
+        avg_range(temp, 0, cnt - 1)
+
+mid70_avg(float[] arr) =>
+    if array.size(arr) == 0
+        na
+    else
+        float[] temp = array.copy(arr)
+        array.sort(temp, order.ascending)
+        int n = array.size(temp)
+        int edge = math.max(1, int(math.floor(n * 0.15)))
+        int fromIdx = edge
+        int toIdx = n - edge - 1
+        avg_range(temp, fromIdx, toIdx)
+
+high15_avg(float[] arr) =>
+    if array.size(arr) == 0
+        na
+    else
+        float[] temp = array.copy(arr)
+        array.sort(temp, order.ascending)
+        int n = array.size(temp)
+        int cnt = math.max(1, int(math.ceil(n * 0.15)))
+        avg_range(temp, n - cnt, n - 1)
+
+get_mid_stat(bool isBull, int sess) =>
+    isBull ? sess == 0 ? mid70_avg(buyAsiaVals) : sess == 1 ? mid70_avg(buyLondonVals) : mid70_avg(buyNyVals) : sess == 0 ? mid70_avg(sellAsiaVals) : sess == 1 ? mid70_avg(sellLondonVals) : mid70_avg(sellNyVals)
+
+get_high_stat(bool isBull, int sess) =>
+    isBull ? sess == 0 ? high15_avg(buyAsiaVals) : sess == 1 ? high15_avg(buyLondonVals) : high15_avg(buyNyVals) : sess == 0 ? high15_avg(sellAsiaVals) : sess == 1 ? high15_avg(sellLondonVals) : high15_avg(sellNyVals)
+
+fmt_pips(float v) =>
+    na(v) ? "-" : str.tostring(v, "#.0") + "p"
+
+fill_push_row(table t, int row, string name, float[] arr, color bg) =>
+    color rowBg = color.new(bg, statsRowOpacity)
+    table.cell(t, 0, row, name, bgcolor = rowBg, text_color = color.white, text_size = size.small)
+    table.cell(t, 1, row, fmt_pips(low15_avg(arr)), bgcolor = color.new(color.green, 15), text_color = color.white, text_size = size.small)
+    table.cell(t, 2, row, fmt_pips(mid70_avg(arr)), bgcolor = color.new(color.blue, 15), text_color = color.white, text_size = size.small)
+    table.cell(t, 3, row, fmt_pips(high15_avg(arr)), bgcolor = color.new(color.purple, 15), text_color = color.white, text_size = size.small)
+    table.cell(t, 4, row, fmt_pips(percentile_arr(arr, 0.15)), bgcolor = color.new(color.teal, 25), text_color = color.white, text_size = size.small)
+    table.cell(t, 5, row, fmt_pips(avg_arr(arr)), bgcolor = color.new(color.orange, 20), text_color = color.white, text_size = size.small)
+    table.cell(t, 6, row, fmt_pips(percentile_arr(arr, 0.85)), bgcolor = color.new(color.red, 20), text_color = color.white, text_size = size.small)
+    table.cell(t, 7, row, str.tostring(array.size(arr)), bgcolor = statsCellBg, text_color = color.white, text_size = size.small)
+
+// --- Výpočty ---
+emaValue = ta.ema(close, emaLen)
+isBullTurn = emaValue[1] < emaValue[2] and emaValue[1] < emaValue
+isBearTurn = emaValue[1] > emaValue[2] and emaValue[1] > emaValue
+
+plot(emaValue, "EMA", color = color.new(color.orange, 50), linewidth = 2)
+
+// --- Update aktívneho pushu ---
+if activeSignal
+    activeMaxPush := activeSignalBull ? math.max(activeMaxPush, high - activeSignalEntry) : math.max(activeMaxPush, activeSignalEntry - low)
+
+// --- Signály ---
+float zoneHeight = get_zone_height()
+
+if isBullTurn
+    int sess = get_session_id(time[1])
+    color signalColor = get_session_color(true, sess)
+    color zoneColor = color.new(signalColor, zoneTransparency)
+
+    label.new(bar_index[1], emaValue[1], "", color = signalColor, style = label.style_circle, size = get_size(circleSize))
+    push_signal_marker(bar_index[1], emaValue[1], true, sess, signalColor)
+
+    float top = emaValue[1] + zoneHeight / 2
+    float bottom = emaValue[1] - zoneHeight / 2
+    box newBox = box.new(bar_index[1], top, bar_index, bottom, border_color = color.new(signalColor, 100), bgcolor = zoneColor, extend = extend.right)
+    array.push(activeZones, Zone.new(newBox, emaValue[1], top, bottom, true, 0, true))
+
+    if activeSignal and not activeSignalBull
+        push_record(activeSignalBull, activeSignalSession, activeMaxPush / get_pip_size(), activeSignalTime)
+
+    if not activeSignal or not activeSignalBull
+        activeSignal := true
+        activeSignalBull := true
+        activeSignalSession := sess
+        activeSignalTime := time[1]
+        activeSignalEntry := emaValue[1]
+        activeMaxPush := 0.0
+
+if isBearTurn
+    int sess = get_session_id(time[1])
+    color signalColor = get_session_color(false, sess)
+    color zoneColor = color.new(signalColor, zoneTransparency)
+
+    label.new(bar_index[1], emaValue[1], "", color = signalColor, style = label.style_circle, size = get_size(circleSize))
+    push_signal_marker(bar_index[1], emaValue[1], false, sess, signalColor)
+
+    float top = emaValue[1] + zoneHeight / 2
+    float bottom = emaValue[1] - zoneHeight / 2
+    box newBox = box.new(bar_index[1], top, bar_index, bottom, border_color = color.new(signalColor, 100), bgcolor = zoneColor, extend = extend.right)
+    array.push(activeZones, Zone.new(newBox, emaValue[1], top, bottom, false, 0, true))
+
+    if activeSignal and activeSignalBull
+        push_record(activeSignalBull, activeSignalSession, activeMaxPush / get_pip_size(), activeSignalTime)
+
+    if not activeSignal or activeSignalBull
+        activeSignal := true
+        activeSignalBull := false
+        activeSignalSession := sess
+        activeSignalTime := time[1]
+        activeSignalEntry := emaValue[1]
+        activeMaxPush := 0.0
+
+// --- Rušenie zón ---
+if array.size(activeZones) > 0
+    for i = array.size(activeZones) - 1 to 0
+        Zone z = array.get(activeZones, i)
+        if z.active
+            if high >= z.bottom and low <= z.top
+                z.crossings += 1
+            if z.crossings >= breakCount
+                z.active := false
+                z.b.set_right(bar_index)
+                z.b.set_extend(extend.none)
+                array.remove(activeZones, i)
+            else
+                array.set(activeZones, i, z)
+
+// --- Čistenie štatistík ---
+if barstate.islast
+    int cutoff = time - statsDays * 24 * 60 * 60 * 1000
+    prune_pair(buyAsiaVals, buyAsiaTimes, cutoff)
+    prune_pair(buyLondonVals, buyLondonTimes, cutoff)
+    prune_pair(buyNyVals, buyNyTimes, cutoff)
+    prune_pair(sellAsiaVals, sellAsiaTimes, cutoff)
+    prune_pair(sellLondonVals, sellLondonTimes, cutoff)
+    prune_pair(sellNyVals, sellNyTimes, cutoff)
+
+// --- MID/HIGH projekcie z posledných bublín ---
+if barstate.islast
+    clear_projections()
+
+    if showPushProjection and array.size(sigBars) > 0
+        int total = array.size(sigBars)
+        int startIdx = math.max(0, total - projectionCount)
+
+        for i = startIdx to total - 1
+            int sigBar = array.get(sigBars, i)
+            float entry = array.get(sigEntries, i)
+            bool isBull = array.get(sigBulls, i)
+            int sess = array.get(sigSessions, i)
+            color c = array.get(sigColors, i)
+
+            float midPips = get_mid_stat(isBull, sess)
+            float highPips = get_high_stat(isBull, sess)
+
+            if not na(midPips)
+                float midPrice = isBull ? entry + midPips * get_pip_size() : entry - midPips * get_pip_size()
+                line midLine = line.new(sigBar, midPrice, sigBar + projectionBars, midPrice, color = c, width = projectionWidth)
+                label midLabel = label.new(sigBar + projectionBars, midPrice, "MIDAVG " + fmt_pips(midPips) + " | " + str.tostring(midPrice, "#.#####"), style = label.style_label_left, color = color.new(c, 10), textcolor = projectionTextColor, size = get_size(projectionTextSize))
+                array.push(projectionLines, midLine)
+                array.push(projectionLabels, midLabel)
+
+            if not na(highPips)
+                float highPrice = isBull ? entry + highPips * get_pip_size() : entry - highPips * get_pip_size()
+                line highLine = line.new(sigBar, highPrice, sigBar + projectionBars, highPrice, color = c, width = projectionWidth + 1)
+                label highLabel = label.new(sigBar + projectionBars, highPrice, "HIGHAVG " + fmt_pips(highPips) + " | " + str.tostring(highPrice, "#.#####"), style = label.style_label_left, color = color.new(c, 0), textcolor = projectionTextColor, size = get_size(projectionTextSize))
+                array.push(projectionLines, highLine)
+                array.push(projectionLabels, highLabel)
+
+// --- Merač gapov ---
+if barstate.islast
+    clear_meter()
+    if showGapMeter and array.size(activeZones) >= 2
+        float[] bottoms = array.new_float()
+        float[] tops = array.new_float()
+        for z in activeZones
+            if z.active
+                array.push(bottoms, z.bottom)
+                array.push(tops, z.top)
+        if array.size(bottoms) >= 2
+            array.sort(bottoms, order.ascending)
+            array.sort(tops, order.ascending)
+            int x = bar_index + meterOffset
+            int leftX = x - meterBgWidthBars
+            int rightX = x + meterBgWidthBars
+            for i = 0 to array.size(tops) - 2
+                float lowerTop = array.get(tops, i)
+                float upperBottom = array.get(bottoms, i + 1)
+                float gap = upperBottom - lowerTop
+                if gap > 0
+                    float mid = lowerTop + gap / 2
+                    float pipVal = gap / get_pip_size()
+                    box bg = box.new(leftX, upperBottom, rightX, lowerTop, bgcolor = color.new(meterBgColor, meterBgOpacity), border_color = color.new(meterBgColor, 100))
+                    line ln = line.new(x, lowerTop, x, upperBottom, color = meterLineColor, width = meterLineWidth)
+                    label lb = label.new(x + meterBgWidthBars + 1, mid, str.tostring(gap, "#.#####") + " USD | " + str.tostring(pipVal, "#.##") + " pips", style = label.style_label_left, textcolor = meterTextColor, color = color.new(color.black, 100), size = get_size(meterTextSize))
+                    array.push(meterBoxes, bg)
+                    array.push(meterLines, ln)
+                    array.push(meterLabels, lb)
+
+// --- Level tabuľka ---
+if showTable and barstate.islast
+    var displayTable = table.new(get_table_pos(tablePos), 2, (levelsCount * 2) + 1, border_width = 1)
+    float[] bearLevels = array.new_float()
+    float[] bullLevels = array.new_float()
+    for z in activeZones
+        if z.active
+            if not z.isBull and z.price > close
+                array.push(bearLevels, z.price)
+            else if z.isBull and z.price < close
+                array.push(bullLevels, z.price)
+    array.sort(bearLevels, order.ascending)
+    array.sort(bullLevels, order.descending)
+    int midRow = levelsCount
+    table.cell(displayTable, 0, midRow, str.tostring(close, "#.#####"), bgcolor = color.new(color.yellow, 20), text_color = color.black)
+    table.cell(displayTable, 1, midRow, "PRICE", bgcolor = color.new(color.yellow, 20), text_color = color.black)
+
+    for i = 0 to levelsCount - 1
+        int rowIdx = midRow - 1 - i
+        if rowIdx >= 0 and i < array.size(bearLevels)
+            float lv = array.get(bearLevels, i)
+            float diff = lv - close
+            table.cell(displayTable, 0, rowIdx, str.tostring(lv, "#.#####"), bgcolor = color.new(color.red, 20 + i * 15))
+            table.cell(displayTable, 1, rowIdx, "+" + str.tostring(diff, "#.#####"), bgcolor = color.new(color.red, 20 + i * 15))
+        else if rowIdx >= 0
+            table.cell(displayTable, 0, rowIdx, "-", bgcolor = color.new(color.gray, 80))
+            table.cell(displayTable, 1, rowIdx, "-", bgcolor = color.new(color.gray, 80))
+
+    for i = 0 to levelsCount - 1
+        int rowIdx = midRow + 1 + i
+        if i < array.size(bullLevels)
+            float lv = array.get(bullLevels, i)
+            float diff = lv - close
+            table.cell(displayTable, 0, rowIdx, str.tostring(lv, "#.#####"), bgcolor = color.new(color.green, 20 + i * 15))
+            table.cell(displayTable, 1, rowIdx, str.tostring(diff, "#.#####"), bgcolor = color.new(color.green, 20 + i * 15))
+        else
+            table.cell(displayTable, 0, rowIdx, "-", bgcolor = color.new(color.gray, 80))
+            table.cell(displayTable, 1, rowIdx, "-", bgcolor = color.new(color.gray, 80))
+
+// --- Push COMBO tabuľka ---
+if showPushTable and barstate.islast
+    var pushTable = table.new(get_table_pos(statsPos), 8, 7, border_width = 2, frame_color = color.white, border_color = color.gray)
+
+    table.cell(pushTable, 0, 0, "SIGNAL", bgcolor = statsHeaderBg, text_color = color.white, text_size = size.small)
+    table.cell(pushTable, 1, 0, "LowAVG", bgcolor = color.new(color.green, 0), text_color = color.white, text_size = size.small)
+    table.cell(pushTable, 2, 0, "MidAVG", bgcolor = color.new(color.blue, 0), text_color = color.white, text_size = size.small)
+    table.cell(pushTable, 3, 0, "HighAVG", bgcolor = color.new(color.purple, 0), text_color = color.white, text_size = size.small)
+    table.cell(pushTable, 4, 0, "P15", bgcolor = color.new(color.teal, 0), text_color = color.white, text_size = size.small)
+    table.cell(pushTable, 5, 0, "AVG", bgcolor = color.new(color.orange, 0), text_color = color.white, text_size = size.small)
+    table.cell(pushTable, 6, 0, "P85", bgcolor = color.new(color.red, 0), text_color = color.white, text_size = size.small)
+    table.cell(pushTable, 7, 0, "N", bgcolor = color.new(color.black, 0), text_color = color.white, text_size = size.small)
+
+    fill_push_row(pushTable, 1, "BUY Asia", buyAsiaVals, buyAsiaColor)
+    fill_push_row(pushTable, 2, "BUY London", buyLondonVals, buyLondonColor)
+    fill_push_row(pushTable, 3, "BUY NY", buyNyVals, buyNyColor)
+    fill_push_row(pushTable, 4, "SELL Asia", sellAsiaVals, sellAsiaColor)
+    fill_push_row(pushTable, 5, "SELL London", sellLondonVals, sellLondonColor)
+    fill_push_row(pushTable, 6, "SELL NY", sellNyVals, sellNyColor)
